@@ -1,0 +1,8 @@
+SELECT 
+  location_id,
+  COUNT(order_no) AS total_orders,
+  ROUND(SUM(order_value_gross), 2) AS total_gross_revenue,
+  ROUND(AVG(order_value_gross), 2) AS avg_order_value
+FROM `mrdipeshashah.pizzarestaurant.order_tracker`
+GROUP BY 1
+ORDER BY total_gross_revenue DESC;
