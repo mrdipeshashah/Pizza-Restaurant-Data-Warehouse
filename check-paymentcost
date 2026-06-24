@@ -1,0 +1,35 @@
+SELECT 
+  order_no,
+  date,
+  location_id,
+  payment_type,
+  payment_cost,
+  'CRITICAL: Cash order has a processing fee greater than £0' AS error_description
+FROM `mrdipeshashah.pizzarestaurant.order_tracker`
+WHERE payment_type = 'Cash' AND payment_cost > 0
+
+UNION ALL
+
+-- Bonus Check: Card order accidentally marked with £0 fees
+SELECT 
+  order_no,
+  date,
+  location_id,
+  payment_type,
+  payment_cost,
+  'WARNING: Card order has exactly £0 fees (Did merchant rates fail?)' AS error_description
+FROM `mrdipeshashah.pizzarestaurant.order_tracker`
+WHERE payment_type = 'Card' AND payment_cost = 0 AND order_value_gross > 0
+
+UNION ALL
+
+-- Bonus Check: Delivery order missing its platform commission fee
+SELECT 
+  order_no,
+  date,
+  location_id,
+  payment_type,
+  platform_cost,
+  'CRITICAL: Third-party delivery order missing platform commission fee' AS error_description
+FROM `mrdipeshashah.pizzarestaurant.order_tracker`
+WHERE order_type = 'Delivery' AND platform_cost = 0;
