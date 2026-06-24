@@ -1,0 +1,17 @@
+SELECT 
+  'order_tracker' AS table_name,
+  CAST(date AS STRING) AS invalid_date_value,
+  COUNT(*) AS row_count
+FROM `mrdipeshashah.pizzarestaurant.order_tracker`
+WHERE SAFE.PARSE_DATE('%Y-%m-%d', CAST(date AS STRING)) IS NULL
+GROUP BY 1, 2
+
+UNION ALL
+
+SELECT 
+  'business_kpi_tracker' AS table_name,
+  CAST(date AS STRING) AS invalid_date_value,
+  COUNT(*) AS row_count
+FROM `mrdipeshashah.pizzarestaurant.business_kpi_tracker`
+WHERE SAFE.PARSE_DATE('%Y-%m-%d', CAST(date AS STRING)) IS NULL
+GROUP BY 1, 2;
