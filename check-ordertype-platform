@@ -1,0 +1,8 @@
+SELECT 
+  order_type,
+  platform,
+  COUNT(order_no) AS order_count,
+  ROUND(SUM(order_value_gross), 2) AS total_revenue
+FROM `mrdipeshashah.pizzarestaurant.order_tracker`
+GROUP BY 1, 2
+ORDER BY 1, 3 DESC;
