@@ -1,0 +1,55 @@
+SELECT
+  -- 1. Identifiers (The Composite Core)
+  sales.location_id,
+  sales.date,
+  sales.price_version_year,
+  sales.total_orders_count,
+
+  -- 2. Revenue (Financial Truth)
+  sales.total_gross_revenue,
+
+  -- 3. Variable Transaction Deductions
+  sales.total_delivery_commission,
+  sales.total_card_merchant_fees,
+  sales.total_packaging_cost,
+
+  -- 4. Ingredient Costs (From Layer 2, View 2)
+  cogs.total_theoretical_cogs,
+  cogs.cogs_pizza,
+  cogs.cogs_starter,
+  cogs.cogs_dessert,
+  cogs.cogs_drinks,
+
+  -- 5. Fixed & Operational Daily Overheads (From Business KPI Tracker)
+  COALESCE(kpi.labor_cost, 0) AS overhead_labor_cost,
+  COALESCE(kpi.marketing_spend, 0) AS overhead_marketing_spend,
+  COALESCE(kpi.utilities, 0) AS overhead_utilities_cost,
+  COALESCE(kpi.wastage, 0) AS overhead_wastage_cost,
+
+  -- 6. Ultimate Financial KPIs (Calculated Metrics)
+  -- Prime Margin = Gross Revenue - Delivery Fees - Card Fees - Packaging
+  (sales.total_gross_revenue - sales.total_delivery_commission - sales.total_card_merchant_fees - sales.total_packaging_cost) AS total_net_sales,
+
+  -- Net Profit Equation
+  (sales.total_gross_revenue 
+    - sales.total_delivery_commission 
+    - sales.total_card_merchant_fees 
+    - sales.total_packaging_cost 
+    - cogs.total_theoretical_cogs 
+    - COALESCE(kpi.labor_cost, 0) 
+    - COALESCE(kpi.marketing_spend, 0) 
+    - COALESCE(kpi.utilities, 0) 
+    - COALESCE(kpi.wastage, 0)
+  ) AS total_net_profit
+
+FROM `mrdipeshashah.pizzarestaurant.v_int_daily_sales_aggregated` sales
+
+-- Composite Key Join to fetch ingredient costs
+LEFT JOIN `mrdipeshashah.pizzarestaurant.v_int_theoretical_cogs` cogs
+  ON sales.date = cogs.date 
+  AND sales.location_id = cogs.location_id
+
+-- Composite Key Join to fetch daily overhead expenses
+LEFT JOIN `mrdipeshashah.pizzarestaurant.business_kpi_tracker` kpi
+  ON sales.date = kpi.date 
+  AND sales.location_id = kpi.location_id;
