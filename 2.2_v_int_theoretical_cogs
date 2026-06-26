@@ -1,0 +1,65 @@
+WITH daily_volumes AS (
+  SELECT * FROM `mrdipeshashah.pizzarestaurant.v_int_daily_sales_aggregated`
+),
+
+ranked_menu_costs AS (
+  SELECT 
+    category,
+    location_id AS menu_location,
+    CAST(SPLIT(item_code, '-')[SAFE_OFFSET(1)] AS INT64) AS menu_year,
+    std_unit_cost,
+    status,
+    -- Rank specific location match as #1, and 'ALL' global fallback as #2
+    ROW_NUMBER() OVER(
+      PARTITION BY category, CAST(SPLIT(item_code, '-')[SAFE_OFFSET(1)] AS INT64), location_id
+      ORDER BY CASE WHEN location_id = 'ALL' THEN 2 ELSE 1 END
+    ) as ranking
+  FROM `mrdipeshashah.pizzarestaurant.item_menu_tracker`
+  WHERE status = 'Active' OR status = 'Retired' -- keeps historical versions viable
+)
+
+SELECT
+  v.location_id,
+  v.date,
+  
+  -- Calculate Total Daily Ingredient Cost by pairing aggregated volumes with ranked menu costs
+  (v.total_qty_pizza * COALESCE(mp.std_unit_cost, 0)) +
+  (v.total_qty_starter * COALESCE(ms.std_unit_cost, 0)) +
+  (v.total_qty_dessert * COALESCE(md.std_unit_cost, 0)) +
+  (v.total_qty_drinks * COALESCE(mdr.std_unit_cost, 0)) AS total_theoretical_cogs,
+  
+  -- Break out individual category costs for granular dashboard charts
+  v.total_qty_pizza * COALESCE(mp.std_unit_cost, 0) AS cogs_pizza,
+  v.total_qty_starter * COALESCE(ms.std_unit_cost, 0) AS cogs_starter,
+  v.total_qty_dessert * COALESCE(md.std_unit_cost, 0) AS cogs_dessert,
+  v.total_qty_drinks * COALESCE(mdr.std_unit_cost, 0) AS cogs_drinks
+
+FROM daily_volumes v
+
+-- Join for Main Pizza Cost
+LEFT JOIN ranked_menu_costs mp 
+  ON v.price_version_year = mp.menu_year 
+  AND mp.category = 'Main Pizza'
+  AND (mp.menu_location = v.location_id OR mp.menu_location = 'ALL')
+  AND mp.ranking = 1
+
+-- Join for Starter Cost
+LEFT JOIN ranked_menu_costs ms 
+  ON v.price_version_year = ms.menu_year 
+  AND ms.category = 'Starter'
+  AND (ms.menu_location = v.location_id OR ms.menu_location = 'ALL')
+  AND ms.ranking = 1
+
+-- Join for Dessert Cost
+LEFT JOIN ranked_menu_costs md 
+  ON v.price_version_year = md.menu_year 
+  AND md.category = 'Dessert'
+  AND (md.menu_location = v.location_id OR md.menu_location = 'ALL')
+  AND md.ranking = 1
+
+-- Join for Drinks Cost
+LEFT JOIN ranked_menu_costs mdr 
+  ON v.price_version_year = mdr.menu_year 
+  AND mdr.category = 'Drinks'
+  AND (mdr.menu_location = v.location_id OR mdr.menu_location = 'ALL')
+  AND mdr.ranking = 1;
