@@ -106,3 +106,97 @@ As the database scales toward a comprehensive £1.6m business evaluation, the fo
 * **Discount & Promotion Tracker:** A separate log for discount voucher codes, loyalty rewards, and manager comps. This bridges the gap between menu `std_unit_price` and actual `order_value_gross`.
 * **Actual vs. Theoretical Inventory (Stock Variance):** A table tracking physical stock takes (e.g., kilos of flour/cheese left in the walk-in). This allows us to compare *Actual Food Cost* against the *Theoretical Food Cost* calculated via our menu tracker to pinpoint kitchen theft, over-portioning, or undeclared waste.
 * **Labor Efficiency Matrix (`shift_id`):** Breaking daily `labor_cost` down into hourly staff clock-ins. This unlocks **Sales per Labor Hour (SPLH)** metrics, telling us exactly when a site is over or under-staffed.
+
+# 🍕 Pizza Restaurant Group - Data Pipeline Architecture & Data Dictionary
+
+This repository contains the database views and schemas for a three-layer BigQuery analytical pipeline. The architecture transforms raw transactional data and daily KPI metrics into a clean, time-intelligent financial model optimized for Looker Studio dashboards.
+
+---
+
+## 🏗️ Core Architecture Overview
+
+The transformation pipeline utilizes a **Composite Primary Key (`location_id` + `date`)** to connect decoupled data streams without creating duplication or nested calculation loops.
+
+1. **Layer 1 (Audit & Validation)**: Acts as a quality gate catching operational anomalies and financial leaks.
+2. **Layer 2, View 1 (`2.1_v_int_daily_sales_aggregated`)**: The Aggregation Engine. Condenses raw tickets to a daily level.
+3. **Layer 2, View 2 (`2.2_v_int_theoretical_cogs`)**: The Matrix Cost Engine. Computes dynamic food costs with location-based overrides.
+4. **Layer 3, Master View (`3.1_v_master_business_performance`)**: The Performance Engine. Integrates fixed overheads, pre-computes bottom-line profit margins, and injects extensive time-intelligence fields.
+
+---
+
+## 📊 Data Dictionary & Schema Specification
+
+### 📦 Layer 2, View 1: `v_int_daily_sales_aggregated`
+* **Role:** Compresses row-by-row transaction logs down to daily location-based volume and revenue snapshots.
+* **GitHub File Reference:** `2_intermediate_layer/2.1_v_int_daily_sales_aggregated.sql`
+
+| Field Name | Data Type | Mode | Description / Logic | Production Example |
+| :--- | :--- | :--- | :--- | :--- |
+| `location_id` | `STRING` | NULLABLE | Unique identifier for the restaurant branch. Part of the composite key. | `LOC_01` |
+| `date` | `DATE` | NULLABLE | Operational date of the business transactions. Part of the composite key. | `2024-01-02` |
+| `price_version_year` | `INTEGER` | NULLABLE | `MAX(price_version_year)` extracted from daily orders to pair with menu pricing editions. | `2024` |
+| `total_qty_pizza` | `INTEGER` | NULLABLE | Aggregated volume sum of all pizzas sold (`SUM(COALESCE(qty_pizza, 0))`). | `94` |
+| `total_qty_starter` | `INTEGER` | NULLABLE | Aggregated volume sum of all starters sold (`SUM(COALESCE(qty_starter, 0))`). | `41` |
+| `total_qty_dessert` | `INTEGER` | NULLABLE | Aggregated volume sum of all desserts sold (`SUM(COALESCE(qty_dessert, 0))`). | `0` |
+| `total_qty_drinks` | `INTEGER` | NULLABLE | Aggregated volume sum of all drinks sold (`SUM(COALESCE(qty_drinks, 0))`). | `0` |
+| `total_gross_revenue` | `FLOAT` | NULLABLE | Raw top-line incoming funds processed through the till system. | `1817.50` |
+| `total_delivery_commission` | `FLOAT` | NULLABLE | Accumulated platform channel fees (e.g., Deliveroo, UberEats). | `160.05` |
+| `total_card_merchant_fees` | `FLOAT` | NULLABLE | Processing fees applied to card transactions. | `17.30` |
+| `total_packaging_cost` | `FLOAT` | NULLABLE | Dynamic cost computed based on takeout boxes used. | `37.60` |
+| `total_orders_count` | `INTEGER` | NULLABLE | Total number of unique orders processed during the operational window. | `47` |
+
+---
+
+### 📦 Layer 2, View 2: `v_int_theoretical_cogs`
+* **Role:** Connects day-by-day sales volumes against the menu cost matrices to calculate theoretical ingredient outlays.
+* **GitHub File Reference:** `2_intermediate_layer/2.2_v_int_theoretical_cogs.sql`
+
+| Field Name | Data Type | Mode | Description / Logic | Production Example |
+| :--- | :--- | :--- | :--- | :--- |
+| `location_id` | `STRING` | NULLABLE | Inherited branch locator. Part of the composite key. | `LOC_01` |
+| `date` | `DATE` | NULLABLE | Inherited calendar date. Part of the composite key. | `2024-01-02` |
+| `total_theoretical_cogs` | `FLOAT` | NULLABLE | Total blended menu ingredient costs across all categories combined. | `531.50` |
+| `cogs_pizza` | `FLOAT` | NULLABLE | Pizza volume multiplied by ranked pizza unit cost. | `470.00` |
+| `cogs_starter` | `FLOAT` | NULLABLE | Starter volume multiplied by ranked starter unit cost. | `61.50` |
+| `cogs_dessert` | `FLOAT` | NULLABLE | Dessert volume multiplied by ranked dessert unit cost. | `0.0` |
+| `cogs_drinks` | `FLOAT` | NULLABLE | Drinks volume multiplied by ranked drink unit cost. | `0.0` |
+
+---
+
+### 👑 Layer 3, Master View: `v_master_business_performance`
+* **Role:** The ultimate presentation table. Combines performance metrics from the intermediate layer along with operational overheads and advanced time-intelligence parameters.
+* **Data Flow Note:** This view explicitly inherits fields from `2.1` and `2.2` via a composite join to eliminate calculation duplication.
+* **GitHub File Reference:** `3_master_reporting_layer/3.1_v_master_business_performance.sql`
+
+#### Inherited Fields (Brought forward automatically)
+* 🔹 **Structural Elements:** `location_id`, `date`, `price_version_year`, `total_orders_count` *(From 2.1)*
+* 🔹 **Gross Financial Streams:** `total_gross_revenue`, `total_delivery_commission`, `total_card_merchant_fees`, `total_packaging_cost` *(From 2.1)*
+* 🔹 **Ingredient Cost Breakdowns:** `total_theoretical_cogs`, `cogs_pizza`, `cogs_starter`, `cogs_dessert`, `cogs_drinks` *(From 2.2)*
+
+#### Extended Time-Intelligence & Operational Cost Elements
+
+| Field Name | Data Type | Mode | Description / Logic | Production Example |
+| :--- | :--- | :--- | :--- | :--- |
+| `day_name` | `STRING` | NULLABLE | Day name format string (`FORMAT_DATE('%A')`). | `Tuesday` |
+| `week_starting_monday` | `DATE` | NULLABLE | Anchors date to previous Monday boundary (`DATE_TRUNC(..., WEEK(MONDAY))`). | `2024-01-01` |
+| `month_name` | `STRING` | NULLABLE | Full calendar month string name identifier (`FORMAT_DATE('%B')`). | `January` |
+| `week_number` | `INTEGER` | NULLABLE | ISO standard calendar numerical week index value (1-53). | `1` |
+| `month_number` | `INTEGER` | NULLABLE | Numerical chronological index of month (1-12). | `1` |
+| `calendar_year` | `INTEGER` | NULLABLE | Clean four-digit numerical base reporting year. | `2024` |
+| `year_month` | `STRING` | NULLABLE | Dash-separated year and month index string key. | `2024-01` |
+| `day_type` | `STRING` | NULLABLE | Flags date based on index value: `Weekend` (Sat/Sun) vs `Weekday`. | `Weekday` |
+| `quarter` | `STRING` | NULLABLE | Maps quarter segment string directly (`Q1`, `Q2`, `Q3`, `Q4`). | `Q1` |
+| `year_quarter` | `STRING` | NULLABLE | Combined year and quarter tracking index code. | `2024-Q1` |
+| `overhead_labor_cost` | `FLOAT` | NULLABLE | Direct labor expenses extracted via composite match to `business_kpi_tracker`. | `250.00` |
+| `overhead_marketing_spend` | `FLOAT` | NULLABLE | Marketing capital disbursed on this day. | `15.00` |
+| `overhead_utilities_cost` | `FLOAT` | NULLABLE | Variable/fixed utility overhead threshold. | `20.00` |
+| `overhead_wastage_cost` | `FLOAT` | NULLABLE | Real dollar value of wasted inventory reported by branch management. | `54.52` |
+| `total_net_sales` | `FLOAT` | NULLABLE | **Calculated Metric:** `total_gross_revenue - total_delivery_commission - total_card_merchant_fees - total_packaging_cost`. | `1602.55` |
+| `total_net_profit` | `FLOAT` | NULLABLE | **Calculated Metric:** `total_net_sales - total_theoretical_cogs - sum of overhead costs`. | `731.53` |
+
+---
+
+## 🛠️ Engineering Integration Guidance
+
+* **Looker Studio Optimization:** Do not use custom calculated fields for revenue subtractions or net margins inside Looker Studio. Use the pre-calculated `total_net_sales` and `total_net_profit` metrics directly to keep dashboard loading response under 1 second.
+* **Aggregations:** When displaying metrics inside scorecard widgets, ensure `total_net_sales` and `total_net_profit` use `SUM` as their default aggregation mode. Time intelligence dimensions (`day_type`, `year_month`) should be used as secondary filters/slicers.
