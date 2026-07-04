@@ -2,22 +2,20 @@ SELECT
   location_id,
   CAST(date AS DATE) AS date,
   
-  -- 🆕 New Channel Slicing Dimensions
+  -- 🆕 Parse the string time (e.g. "13:35" -> 13)
+  SAFE_CAST(SPLIT(time, ':')[OFFSET(0)] AS INT64) AS order_hour,
+  
   order_type,
   platform,
+  MAX(price_version_year) AS price_version_year,
   
-  MAX(price_version_year) AS price_version_year, -- Identifies which menu version to apply
-  
-  -- 1. Volume Metrics (Aggregating quantities for trend/operational analysis)
+  -- 1. Volume Metrics
   SUM(COALESCE(qty_pizza, 0)) AS total_qty_pizza,
   SUM(COALESCE(qty_starter, 0)) AS total_qty_starter,
   SUM(COALESCE(qty_dessert, 0)) AS total_qty_dessert,
   SUM(COALESCE(qty_drinks, 0)) AS total_qty_drinks,
   
-  -- FUTURE EXPANSION GUARDRAIL: When you add kids pizza, you just uncomment the line below!
-  -- SUM(COALESCE(qty_kids_pizza, 0)) AS total_qty_kids_pizza,
-
-  -- 2. Financial Metrics (Aggregating the true revenue and transaction leaks)
+  -- 2. Financial Metrics
   SUM(COALESCE(order_value_gross, 0)) AS total_gross_revenue,
   SUM(COALESCE(platform_cost, 0)) AS total_delivery_commission,
   SUM(COALESCE(payment_cost, 0)) AS total_card_merchant_fees,
@@ -30,5 +28,6 @@ FROM `mrdipeshashah.pizzarestaurant.order_tracker`
 GROUP BY 
   location_id, 
   CAST(date AS DATE),
-  order_type, -- 🆕 Grouping expanded for order type splits
-  platform;   -- 🆕 Grouping expanded for channel/platform splits
+  SAFE_CAST(SPLIT(time, ':')[OFFSET(0)] AS INT64),
+  order_type, 
+  platform;
