@@ -5,7 +5,10 @@ SELECT
   sales.price_version_year,
   sales.total_orders_count,
   
-  -- 🆕 Full Time Intelligence Battery Restored
+  -- 🆕 Hourly Dimension exposed to the dashboard
+  sales.order_hour,
+  
+  -- Full Time Intelligence Battery
   FORMAT_DATE('%A', sales.date) AS day_name,
   DATE_TRUNC(sales.date, WEEK(MONDAY)) AS week_starting_monday,
   FORMAT_DATE('%B', sales.date) AS month_name,
