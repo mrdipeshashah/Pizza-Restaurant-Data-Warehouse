@@ -1,9 +1,32 @@
 SELECT
-  -- 1. Identifiers (The Composite Core)
+  -- 1. Identifiers & Time Intelligence (The Composite Core)
   sales.location_id,
   sales.date,
   sales.price_version_year,
   sales.total_orders_count,
+  
+  -- 🆕 Full Time Intelligence Battery Restored
+  FORMAT_DATE('%A', sales.date) AS day_name,
+  DATE_TRUNC(sales.date, WEEK(MONDAY)) AS week_starting_monday,
+  FORMAT_DATE('%B', sales.date) AS month_name,
+  EXTRACT(WEEK(MONDAY) FROM sales.date) AS week_number,
+  EXTRACT(MONTH FROM sales.date) AS month_number,
+  EXTRACT(YEAR FROM sales.date) AS calendar_year,
+  FORMAT_DATE('%Y-%m', sales.date) AS year_month,
+  CASE WHEN EXTRACT(DAYOFWEEK FROM sales.date) IN (1, 7) THEN 'Weekend' 
+       ELSE 'Weekday' 
+  END AS day_type,
+  CONCAT('Q', EXTRACT(QUARTER FROM sales.date)) AS quarter,
+  CONCAT(EXTRACT(YEAR FROM sales.date), '-Q', EXTRACT(QUARTER FROM sales.date)) AS year_quarter,
+  
+  -- Chronological Day-of-Week Sorting Index (Monday = 1, Sunday = 7)
+  CASE WHEN EXTRACT(DAYOFWEEK FROM sales.date) = 1 THEN 7 
+       ELSE EXTRACT(DAYOFWEEK FROM sales.date) - 1 
+  END AS day_of_week_index,
+
+  -- Key Channel Slicing Dimensions
+  sales.order_type,
+  sales.platform,
 
   -- 2. Revenue (Financial Truth)
   sales.total_gross_revenue,
@@ -20,26 +43,25 @@ SELECT
   cogs.cogs_dessert,
   cogs.cogs_drinks,
 
-  -- 5. Fixed & Operational Daily Overheads (From Business KPI Tracker)
-  COALESCE(kpi.labor_cost, 0) AS overhead_labor_cost,
-  COALESCE(kpi.marketing_spend, 0) AS overhead_marketing_spend,
-  COALESCE(kpi.utilities, 0) AS overhead_utilities_cost,
-  COALESCE(kpi.wastage, 0) AS overhead_wastage_cost,
+  -- 5. Fixed & Operational Daily Overheads (Safely Allocated by Row Fraction)
+  COALESCE(kpi.labor_cost, 0) / COUNT(*) OVER(PARTITION BY sales.location_id, sales.date) AS overhead_labor_cost,
+  COALESCE(kpi.marketing_spend, 0) / COUNT(*) OVER(PARTITION BY sales.location_id, sales.date) AS overhead_marketing_spend,
+  COALESCE(kpi.utilities, 0) / COUNT(*) OVER(PARTITION BY sales.location_id, sales.date) AS overhead_utilities_cost,
+  COALESCE(kpi.wastage, 0) / COUNT(*) OVER(PARTITION BY sales.location_id, sales.date) AS overhead_wastage_cost,
 
   -- 6. Ultimate Financial KPIs (Calculated Metrics)
-  -- Prime Margin = Gross Revenue - Delivery Fees - Card Fees - Packaging
   (sales.total_gross_revenue - sales.total_delivery_commission - sales.total_card_merchant_fees - sales.total_packaging_cost) AS total_net_sales,
 
-  -- Net Profit Equation
+  -- Adjusted Channel Net Profit Equation
   (sales.total_gross_revenue 
     - sales.total_delivery_commission 
     - sales.total_card_merchant_fees 
     - sales.total_packaging_cost 
     - cogs.total_theoretical_cogs 
-    - COALESCE(kpi.labor_cost, 0) 
-    - COALESCE(kpi.marketing_spend, 0) 
-    - COALESCE(kpi.utilities, 0) 
-    - COALESCE(kpi.wastage, 0)
+    - (COALESCE(kpi.labor_cost, 0) / COUNT(*) OVER(PARTITION BY sales.location_id, sales.date))
+    - (COALESCE(kpi.marketing_spend, 0) / COUNT(*) OVER(PARTITION BY sales.location_id, sales.date))
+    - (COALESCE(kpi.utilities, 0) / COUNT(*) OVER(PARTITION BY sales.location_id, sales.date))
+    - (COALESCE(kpi.wastage, 0) / COUNT(*) OVER(PARTITION BY sales.location_id, sales.date))
   ) AS total_net_profit
 
 FROM `mrdipeshashah.pizzarestaurant.v_int_daily_sales_aggregated` sales
