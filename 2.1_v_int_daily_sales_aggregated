@@ -1,6 +1,11 @@
 SELECT
   location_id,
   CAST(date AS DATE) AS date,
+  
+  -- 🆕 New Channel Slicing Dimensions
+  order_type,
+  platform,
+  
   MAX(price_version_year) AS price_version_year, -- Identifies which menu version to apply
   
   -- 1. Volume Metrics (Aggregating quantities for trend/operational analysis)
@@ -24,4 +29,6 @@ SELECT
 FROM `mrdipeshashah.pizzarestaurant.order_tracker`
 GROUP BY 
   location_id, 
-  CAST(date AS DATE);
+  CAST(date AS DATE),
+  order_type, -- 🆕 Grouping expanded for order type splits
+  platform;   -- 🆕 Grouping expanded for channel/platform splits
