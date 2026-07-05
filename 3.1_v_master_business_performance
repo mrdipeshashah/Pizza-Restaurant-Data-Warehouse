@@ -1,3 +1,5 @@
+CREATE OR REPLACE VIEW `mrdipeshashah.pizzarestaurant.v_master_business_performance` AS
+
 WITH clear_sales AS (
   SELECT 
     location_id,
@@ -17,6 +19,20 @@ WITH clear_sales AS (
     SUM(total_packaging_cost) AS total_packaging_cost
   FROM `mrdipeshashah.pizzarestaurant.v_int_daily_sales_aggregated`
   GROUP BY 1,2,3,4,5,6
+),
+
+-- SAFE COGS: Compressed down to exactly 1 unique row per date/location
+clear_cogs AS (
+  SELECT 
+    location_id,
+    date,
+    SUM(total_theoretical_cogs) AS total_theoretical_cogs,
+    SUM(cogs_pizza) AS cogs_pizza,
+    SUM(cogs_starter) AS cogs_starter,
+    SUM(cogs_dessert) AS cogs_dessert,
+    SUM(cogs_drinks) AS cogs_drinks
+  FROM `mrdipeshashah.pizzarestaurant.v_int_theoretical_cogs`
+  GROUP BY 1,2
 ),
 
 daily_row_counts AS (
@@ -58,7 +74,7 @@ SELECT
   s.total_packaging_cost,
   (s.total_gross_revenue - s.total_delivery_commission - s.total_card_merchant_fees - s.total_packaging_cost) AS total_net_sales,
 
-  -- 3. Safely Allocated Expenses (Sourced from the native table)
+  -- 3. Safely Allocated Expenses
   (COALESCE(cogs.total_theoretical_cogs, 0) / rc.total_rows_today) AS total_theoretical_cogs,
   (COALESCE(cogs.cogs_pizza, 0) / rc.total_rows_today) AS cogs_pizza,
   (COALESCE(cogs.cogs_starter, 0) / rc.total_rows_today) AS cogs_starter,
@@ -85,7 +101,7 @@ SELECT
 FROM clear_sales s
 INNER JOIN daily_row_counts rc 
   ON s.date = rc.date AND s.location_id = rc.location_id
-LEFT JOIN `mrdipeshashah.pizzarestaurant.v_int_theoretical_cogs` cogs 
+LEFT JOIN clear_cogs cogs 
   ON s.date = cogs.date AND s.location_id = cogs.location_id
 LEFT JOIN `mrdipeshashah.pizzarestaurant.native_kpi_tracker` kpi 
   ON s.date = kpi.date AND s.location_id = kpi.location_id;
