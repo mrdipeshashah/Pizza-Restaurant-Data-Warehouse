@@ -1,80 +1,86 @@
+WITH ordered_sales AS (
+  SELECT 
+    sales.*,
+    -- Tag the first row of each day/location combo with a '1' so we can attach daily costs safely
+    ROW_NUMBER() OVER(
+      PARTITION BY sales.location_id, sales.date 
+      ORDER BY sales.order_hour, sales.platform, sales.order_type
+    ) AS row_allocation_index
+  FROM `mrdipeshashah.pizzarestaurant.v_int_daily_sales_aggregated` sales
+)
+
 SELECT
-  -- 1. Identifiers & Time Intelligence (The Composite Core)
-  sales.location_id,
-  sales.date,
-  sales.price_version_year,
-  sales.total_orders_count,
-  
-  -- 🆕 Hourly Dimension exposed to the dashboard
-  sales.order_hour,
+  -- 1. Identifiers & Time Dimensions
+  os.location_id,
+  os.date,
+  os.price_version_year,
+  os.total_orders_count,
+  os.order_hour,
+  os.order_type,
+  os.platform,
   
   -- Full Time Intelligence Battery
-  FORMAT_DATE('%A', sales.date) AS day_name,
-  DATE_TRUNC(sales.date, WEEK(MONDAY)) AS week_starting_monday,
-  FORMAT_DATE('%B', sales.date) AS month_name,
-  EXTRACT(WEEK(MONDAY) FROM sales.date) AS week_number,
-  EXTRACT(MONTH FROM sales.date) AS month_number,
-  EXTRACT(YEAR FROM sales.date) AS calendar_year,
-  FORMAT_DATE('%Y-%m', sales.date) AS year_month,
-  CASE WHEN EXTRACT(DAYOFWEEK FROM sales.date) IN (1, 7) THEN 'Weekend' 
-       ELSE 'Weekday' 
-  END AS day_type,
-  CONCAT('Q', EXTRACT(QUARTER FROM sales.date)) AS quarter,
-  CONCAT(EXTRACT(YEAR FROM sales.date), '-Q', EXTRACT(QUARTER FROM sales.date)) AS year_quarter,
-  
-  -- Chronological Day-of-Week Sorting Index (Monday = 1, Sunday = 7)
-  CASE WHEN EXTRACT(DAYOFWEEK FROM sales.date) = 1 THEN 7 
-       ELSE EXTRACT(DAYOFWEEK FROM sales.date) - 1 
-  END AS day_of_week_index,
+  FORMAT_DATE('%A', os.date) AS day_name,
+  DATE_TRUNC(os.date, WEEK(MONDAY)) AS week_starting_monday,
+  FORMAT_DATE('%B', os.date) AS month_name,
+  EXTRACT(WEEK(MONDAY) FROM os.date) AS week_number,
+  EXTRACT(MONTH FROM os.date) AS month_number,
+  EXTRACT(YEAR FROM os.date) AS calendar_year,
+  FORMAT_DATE('%Y-%m', os.date) AS year_month,
+  CASE WHEN EXTRACT(DAYOFWEEK FROM os.date) IN (1, 7) THEN 'Weekend' ELSE 'Weekday' END AS day_type,
+  CONCAT('Q', EXTRACT(QUARTER FROM os.date)) AS quarter,
+  CONCAT(EXTRACT(YEAR FROM os.date), '-Q', EXTRACT(QUARTER FROM os.date)) AS year_quarter,
+  CASE WHEN EXTRACT(DAYOFWEEK FROM os.date) = 1 THEN 7 ELSE EXTRACT(DAYOFWEEK FROM os.date) - 1 END AS day_of_week_index,
 
-  -- Key Channel Slicing Dimensions
-  sales.order_type,
-  sales.platform,
-
-  -- 2. Revenue (Financial Truth)
-  sales.total_gross_revenue,
+  -- 2. Pure Sales & Volume Metrics
+  os.total_qty_pizza,
+  os.total_qty_starter,
+  os.total_qty_dessert,
+  os.total_qty_drinks,
+  os.total_gross_revenue,
 
   -- 3. Variable Transaction Deductions
-  sales.total_delivery_commission,
-  sales.total_card_merchant_fees,
-  sales.total_packaging_cost,
+  os.total_delivery_commission,
+  os.total_card_merchant_fees,
+  os.total_packaging_cost,
 
-  -- 4. Ingredient Costs (From Layer 2, View 2)
-  cogs.total_theoretical_cogs,
-  cogs.cogs_pizza,
-  cogs.cogs_starter,
-  cogs.cogs_dessert,
-  cogs.cogs_drinks,
+  -- 4. Financial Truth: Net Sales (Gross - Commissions/Fees)
+  (os.total_gross_revenue - os.total_delivery_commission - os.total_card_merchant_fees - os.total_packaging_cost) AS total_net_sales,
 
-  -- 5. Fixed & Operational Daily Overheads (Safely Allocated by Row Fraction)
-  COALESCE(kpi.labor_cost, 0) / COUNT(*) OVER(PARTITION BY sales.location_id, sales.date) AS overhead_labor_cost,
-  COALESCE(kpi.marketing_spend, 0) / COUNT(*) OVER(PARTITION BY sales.location_id, sales.date) AS overhead_marketing_spend,
-  COALESCE(kpi.utilities, 0) / COUNT(*) OVER(PARTITION BY sales.location_id, sales.date) AS overhead_utilities_cost,
-  COALESCE(kpi.wastage, 0) / COUNT(*) OVER(PARTITION BY sales.location_id, sales.date) AS overhead_wastage_cost,
+  -- 5. COGS (Assigned cleanly to the first row of each day/location)
+  CASE WHEN os.row_allocation_index = 1 THEN COALESCE(cogs.total_theoretical_cogs, 0) ELSE 0 END AS total_theoretical_cogs,
+  CASE WHEN os.row_allocation_index = 1 THEN COALESCE(cogs.cogs_pizza, 0) ELSE 0 END AS cogs_pizza,
+  CASE WHEN os.row_allocation_index = 1 THEN COALESCE(cogs.cogs_starter, 0) ELSE 0 END AS cogs_starter,
+  CASE WHEN os.row_allocation_index = 1 THEN COALESCE(cogs.cogs_dessert, 0) ELSE 0 END AS cogs_dessert,
+  CASE WHEN os.row_allocation_index = 1 THEN COALESCE(cogs.cogs_drinks, 0) ELSE 0 END AS cogs_drinks,
 
-  -- 6. Ultimate Financial KPIs (Calculated Metrics)
-  (sales.total_gross_revenue - sales.total_delivery_commission - sales.total_card_merchant_fees - sales.total_packaging_cost) AS total_net_sales,
+  -- 6. Fixed Daily Overheads (Assigned cleanly to the first row of each day/location)
+  CASE WHEN os.row_allocation_index = 1 THEN COALESCE(kpi.labor_cost, 0) ELSE 0 END AS overhead_labor_cost,
+  CASE WHEN os.row_allocation_index = 1 THEN COALESCE(kpi.marketing_spend, 0) ELSE 0 END AS overhead_marketing_spend,
+  CASE WHEN os.row_allocation_index = 1 THEN COALESCE(kpi.utilities, 0) ELSE 0 END AS overhead_utilities_cost,
+  CASE WHEN os.row_allocation_index = 1 THEN COALESCE(kpi.wastage, 0) ELSE 0 END AS overhead_wastage_cost,
 
-  -- Adjusted Channel Net Profit Equation
-  (sales.total_gross_revenue 
-    - sales.total_delivery_commission 
-    - sales.total_card_merchant_fees 
-    - sales.total_packaging_cost 
-    - cogs.total_theoretical_cogs 
-    - (COALESCE(kpi.labor_cost, 0) / COUNT(*) OVER(PARTITION BY sales.location_id, sales.date))
-    - (COALESCE(kpi.marketing_spend, 0) / COUNT(*) OVER(PARTITION BY sales.location_id, sales.date))
-    - (COALESCE(kpi.utilities, 0) / COUNT(*) OVER(PARTITION BY sales.location_id, sales.date))
-    - (COALESCE(kpi.wastage, 0) / COUNT(*) OVER(PARTITION BY sales.location_id, sales.date))
-  ) AS total_net_profit
+  -- Total Overhead Summary Column
+  CASE WHEN os.row_allocation_index = 1 THEN 
+    (COALESCE(kpi.labor_cost, 0) + COALESCE(kpi.marketing_spend, 0) + COALESCE(kpi.utilities, 0) + COALESCE(kpi.wastage, 0))
+  ELSE 0 END AS total_overhead_costs,
 
-FROM `mrdipeshashah.pizzarestaurant.v_int_daily_sales_aggregated` sales
+  -- 7. Net Profit Calculations (Calculated directly per row)
+  (os.total_gross_revenue - os.total_delivery_commission - os.total_card_merchant_fees - os.total_packaging_cost)
+    - (CASE WHEN os.row_allocation_index = 1 THEN COALESCE(cogs.total_theoretical_cogs, 0) ELSE 0 END)
+    - (CASE WHEN os.row_allocation_index = 1 THEN COALESCE(kpi.labor_cost, 0) ELSE 0 END)
+    - (CASE WHEN os.row_allocation_index = 1 THEN COALESCE(kpi.marketing_spend, 0) ELSE 0 END)
+    - (CASE WHEN os.row_allocation_index = 1 THEN COALESCE(kpi.utilities, 0) ELSE 0 END)
+    - (CASE WHEN os.row_allocation_index = 1 THEN COALESCE(kpi.wastage, 0) ELSE 0 END)
+  AS total_net_profit
 
--- Composite Key Join to fetch ingredient costs
+FROM ordered_sales os
+
+-- Clean 1:1 Date/Location joins that will never loop or freeze
 LEFT JOIN `mrdipeshashah.pizzarestaurant.v_int_theoretical_cogs` cogs
-  ON sales.date = cogs.date 
-  AND sales.location_id = cogs.location_id
+  ON os.date = cogs.date 
+  AND os.location_id = cogs.location_id
 
--- Composite Key Join to fetch daily overhead expenses
 LEFT JOIN `mrdipeshashah.pizzarestaurant.business_kpi_tracker` kpi
-  ON sales.date = kpi.date 
-  AND sales.location_id = kpi.location_id;
+  ON os.date = kpi.date 
+  AND os.location_id = kpi.location_id;
