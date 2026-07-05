@@ -1,86 +1,91 @@
-WITH ordered_sales AS (
+WITH clear_sales AS (
   SELECT 
-    sales.*,
-    -- Tag the first row of each day/location combo with a '1' so we can attach daily costs safely
-    ROW_NUMBER() OVER(
-      PARTITION BY sales.location_id, sales.date 
-      ORDER BY sales.order_hour, sales.platform, sales.order_type
-    ) AS row_allocation_index
-  FROM `mrdipeshashah.pizzarestaurant.v_int_daily_sales_aggregated` sales
+    location_id,
+    date,
+    price_version_year,
+    order_hour,
+    order_type,
+    platform,
+    SUM(total_orders_count) AS total_orders_count,
+    SUM(total_qty_pizza) AS total_qty_pizza,
+    SUM(total_qty_starter) AS total_qty_starter,
+    SUM(total_qty_dessert) AS total_qty_dessert,
+    SUM(total_qty_drinks) AS total_qty_drinks,
+    SUM(total_gross_revenue) AS total_gross_revenue,
+    SUM(total_delivery_commission) AS total_delivery_commission,
+    SUM(total_card_merchant_fees) AS total_card_merchant_fees,
+    SUM(total_packaging_cost) AS total_packaging_cost
+  FROM `mrdipeshashah.pizzarestaurant.v_int_daily_sales_aggregated`
+  GROUP BY 1,2,3,4,5,6
+),
+
+daily_row_counts AS (
+  SELECT location_id, date, COUNT(*) AS total_rows_today
+  FROM clear_sales
+  GROUP BY 1,2
 )
 
 SELECT
-  -- 1. Identifiers & Time Dimensions
-  os.location_id,
-  os.date,
-  os.price_version_year,
-  os.total_orders_count,
-  os.order_hour,
-  os.order_type,
-  os.platform,
+  -- 1. Core Keys & Time Intelligence
+  s.location_id,
+  s.date,
+  s.price_version_year,
+  s.total_orders_count,
+  s.order_hour,
+  s.order_type,
+  s.platform,
   
-  -- Full Time Intelligence Battery
-  FORMAT_DATE('%A', os.date) AS day_name,
-  DATE_TRUNC(os.date, WEEK(MONDAY)) AS week_starting_monday,
-  FORMAT_DATE('%B', os.date) AS month_name,
-  EXTRACT(WEEK(MONDAY) FROM os.date) AS week_number,
-  EXTRACT(MONTH FROM os.date) AS month_number,
-  EXTRACT(YEAR FROM os.date) AS calendar_year,
-  FORMAT_DATE('%Y-%m', os.date) AS year_month,
-  CASE WHEN EXTRACT(DAYOFWEEK FROM os.date) IN (1, 7) THEN 'Weekend' ELSE 'Weekday' END AS day_type,
-  CONCAT('Q', EXTRACT(QUARTER FROM os.date)) AS quarter,
-  CONCAT(EXTRACT(YEAR FROM os.date), '-Q', EXTRACT(QUARTER FROM os.date)) AS year_quarter,
-  CASE WHEN EXTRACT(DAYOFWEEK FROM os.date) = 1 THEN 7 ELSE EXTRACT(DAYOFWEEK FROM os.date) - 1 END AS day_of_week_index,
+  FORMAT_DATE('%A', s.date) AS day_name,
+  DATE_TRUNC(s.date, WEEK(MONDAY)) AS week_starting_monday,
+  FORMAT_DATE('%B', s.date) AS month_name,
+  EXTRACT(WEEK(MONDAY) FROM s.date) AS week_number,
+  EXTRACT(MONTH FROM s.date) AS month_number,
+  EXTRACT(YEAR FROM s.date) AS calendar_year,
+  FORMAT_DATE('%Y-%m', s.date) AS year_month,
+  CASE WHEN EXTRACT(DAYOFWEEK FROM s.date) IN (1, 7) THEN 'Weekend' ELSE 'Weekday' END AS day_type,
+  CONCAT('Q', EXTRACT(QUARTER FROM s.date)) AS quarter,
+  CONCAT(EXTRACT(YEAR FROM s.date), '-Q', EXTRACT(QUARTER FROM s.date)) AS year_quarter,
+  CASE WHEN EXTRACT(DAYOFWEEK FROM s.date) = 1 THEN 7 ELSE EXTRACT(DAYOFWEEK FROM s.date) - 1 END AS day_of_week_index,
 
-  -- 2. Pure Sales & Volume Metrics
-  os.total_qty_pizza,
-  os.total_qty_starter,
-  os.total_qty_dessert,
-  os.total_qty_drinks,
-  os.total_gross_revenue,
+  -- 2. Pure Sales Performance (True Baseline Match)
+  s.total_qty_pizza,
+  s.total_qty_starter,
+  s.total_qty_dessert,
+  s.total_qty_drinks,
+  s.total_gross_revenue,
+  s.total_delivery_commission,
+  s.total_card_merchant_fees,
+  s.total_packaging_cost,
+  (s.total_gross_revenue - s.total_delivery_commission - s.total_card_merchant_fees - s.total_packaging_cost) AS total_net_sales,
 
-  -- 3. Variable Transaction Deductions
-  os.total_delivery_commission,
-  os.total_card_merchant_fees,
-  os.total_packaging_cost,
+  -- 3. Safely Allocated Expenses (Sourced from the native table)
+  (COALESCE(cogs.total_theoretical_cogs, 0) / rc.total_rows_today) AS total_theoretical_cogs,
+  (COALESCE(cogs.cogs_pizza, 0) / rc.total_rows_today) AS cogs_pizza,
+  (COALESCE(cogs.cogs_starter, 0) / rc.total_rows_today) AS cogs_starter,
+  (COALESCE(cogs.cogs_dessert, 0) / rc.total_rows_today) AS cogs_dessert,
+  (COALESCE(cogs.cogs_drinks, 0) / rc.total_rows_today) AS cogs_drinks,
 
-  -- 4. Financial Truth: Net Sales (Gross - Commissions/Fees)
-  (os.total_gross_revenue - os.total_delivery_commission - os.total_card_merchant_fees - os.total_packaging_cost) AS total_net_sales,
-
-  -- 5. COGS (Assigned cleanly to the first row of each day/location)
-  CASE WHEN os.row_allocation_index = 1 THEN COALESCE(cogs.total_theoretical_cogs, 0) ELSE 0 END AS total_theoretical_cogs,
-  CASE WHEN os.row_allocation_index = 1 THEN COALESCE(cogs.cogs_pizza, 0) ELSE 0 END AS cogs_pizza,
-  CASE WHEN os.row_allocation_index = 1 THEN COALESCE(cogs.cogs_starter, 0) ELSE 0 END AS cogs_starter,
-  CASE WHEN os.row_allocation_index = 1 THEN COALESCE(cogs.cogs_dessert, 0) ELSE 0 END AS cogs_dessert,
-  CASE WHEN os.row_allocation_index = 1 THEN COALESCE(cogs.cogs_drinks, 0) ELSE 0 END AS cogs_drinks,
-
-  -- 6. Fixed Daily Overheads (Assigned cleanly to the first row of each day/location)
-  CASE WHEN os.row_allocation_index = 1 THEN COALESCE(kpi.labor_cost, 0) ELSE 0 END AS overhead_labor_cost,
-  CASE WHEN os.row_allocation_index = 1 THEN COALESCE(kpi.marketing_spend, 0) ELSE 0 END AS overhead_marketing_spend,
-  CASE WHEN os.row_allocation_index = 1 THEN COALESCE(kpi.utilities, 0) ELSE 0 END AS overhead_utilities_cost,
-  CASE WHEN os.row_allocation_index = 1 THEN COALESCE(kpi.wastage, 0) ELSE 0 END AS overhead_wastage_cost,
+  (COALESCE(kpi.labor_cost, 0) / rc.total_rows_today) AS overhead_labor_cost,
+  (COALESCE(kpi.marketing_spend, 0) / rc.total_rows_today) AS overhead_marketing_spend,
+  (COALESCE(kpi.utilities, 0) / rc.total_rows_today) AS overhead_utilities_cost,
+  (COALESCE(kpi.wastage, 0) / rc.total_rows_today) AS overhead_wastage_cost,
 
   -- Total Overhead Summary Column
-  CASE WHEN os.row_allocation_index = 1 THEN 
-    (COALESCE(kpi.labor_cost, 0) + COALESCE(kpi.marketing_spend, 0) + COALESCE(kpi.utilities, 0) + COALESCE(kpi.wastage, 0))
-  ELSE 0 END AS total_overhead_costs,
+  ((COALESCE(kpi.labor_cost, 0) + COALESCE(kpi.marketing_spend, 0) + COALESCE(kpi.utilities, 0) + COALESCE(kpi.wastage, 0)) / rc.total_rows_today) AS total_overhead_costs,
 
-  -- 7. Net Profit Calculations (Calculated directly per row)
-  (os.total_gross_revenue - os.total_delivery_commission - os.total_card_merchant_fees - os.total_packaging_cost)
-    - (CASE WHEN os.row_allocation_index = 1 THEN COALESCE(cogs.total_theoretical_cogs, 0) ELSE 0 END)
-    - (CASE WHEN os.row_allocation_index = 1 THEN COALESCE(kpi.labor_cost, 0) ELSE 0 END)
-    - (CASE WHEN os.row_allocation_index = 1 THEN COALESCE(kpi.marketing_spend, 0) ELSE 0 END)
-    - (CASE WHEN os.row_allocation_index = 1 THEN COALESCE(kpi.utilities, 0) ELSE 0 END)
-    - (CASE WHEN os.row_allocation_index = 1 THEN COALESCE(kpi.wastage, 0) ELSE 0 END)
-  AS total_net_profit
+  -- 4. Bottom-Line Profit Metrics
+  ((s.total_gross_revenue - s.total_delivery_commission - s.total_card_merchant_fees - s.total_packaging_cost) 
+    - (COALESCE(cogs.total_theoretical_cogs, 0) / rc.total_rows_today)
+    - (COALESCE(kpi.labor_cost, 0) / rc.total_rows_today)
+    - (COALESCE(kpi.marketing_spend, 0) / rc.total_rows_today)
+    - (COALESCE(kpi.utilities, 0) / rc.total_rows_today)
+    - (COALESCE(kpi.wastage, 0) / rc.total_rows_today)
+  ) AS total_net_profit
 
-FROM ordered_sales os
-
--- Clean 1:1 Date/Location joins that will never loop or freeze
-LEFT JOIN `mrdipeshashah.pizzarestaurant.v_int_theoretical_cogs` cogs
-  ON os.date = cogs.date 
-  AND os.location_id = cogs.location_id
-
-LEFT JOIN `mrdipeshashah.pizzarestaurant.business_kpi_tracker` kpi
-  ON os.date = kpi.date 
-  AND os.location_id = kpi.location_id;
+FROM clear_sales s
+INNER JOIN daily_row_counts rc 
+  ON s.date = rc.date AND s.location_id = rc.location_id
+LEFT JOIN `mrdipeshashah.pizzarestaurant.v_int_theoretical_cogs` cogs 
+  ON s.date = cogs.date AND s.location_id = cogs.location_id
+LEFT JOIN `mrdipeshashah.pizzarestaurant.native_kpi_tracker` kpi 
+  ON s.date = kpi.date AND s.location_id = kpi.location_id;
