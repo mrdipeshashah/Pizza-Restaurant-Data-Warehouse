@@ -1,0 +1,9 @@
+CREATE OR REPLACE TABLE `mrdipeshashah.pizzarestaurant.native_kpi_tracker` AS 
+SELECT 
+  PARSE_DATE('%Y-%m-%d', CAST(date AS STRING)) AS date, -- Forces clean date indexing
+  CAST(location_id AS STRING) AS location_id,
+  COALESCE(CAST(labor_cost AS NUMERIC), 0) AS labor_cost,
+  COALESCE(CAST(marketing_spend AS NUMERIC), 0) AS marketing_spend,
+  COALESCE(CAST(utilities AS NUMERIC), 0) AS utilities,
+  COALESCE(CAST(wastage AS NUMERIC), 0) AS wastage
+FROM `mrdipeshashah.pizzarestaurant.business_kpi_tracker`;
