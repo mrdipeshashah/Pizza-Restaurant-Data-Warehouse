@@ -17,7 +17,7 @@ WITH clear_sales AS (
     SUM(total_delivery_commission) AS total_delivery_commission,
     SUM(total_card_merchant_fees) AS total_card_merchant_fees,
     SUM(total_packaging_cost) AS total_packaging_cost
-  FROM `mrdipeshashah.pizzarestaurant.v_int_daily_sales_aggregated`
+  FROM `mrdipeshashah.pizzarestaurant.tbl_daily_sales_aggregated`
   GROUP BY 1,2,3,4,5,6
 ),
 
@@ -32,6 +32,19 @@ clear_cogs AS (
     SUM(cogs_dessert) AS cogs_dessert,
     SUM(cogs_drinks) AS cogs_drinks
   FROM `mrdipeshashah.pizzarestaurant.v_int_theoretical_cogs`
+  GROUP BY 1,2
+),
+
+-- SAFE OVERHEADS: Pre-aggregated down to exactly 1 row per date/location to prevent cross-join duplication
+clear_kpi AS (
+  SELECT
+    location_id,
+    date,
+    SUM(labor_cost) AS labor_cost,
+    SUM(marketing_spend) AS marketing_spend,
+    SUM(utilities) AS utilities,
+    SUM(wastage) AS wastage
+  FROM `mrdipeshashah.pizzarestaurant.native_kpi_tracker`
   GROUP BY 1,2
 ),
 
@@ -103,5 +116,5 @@ INNER JOIN daily_row_counts rc
   ON s.date = rc.date AND s.location_id = rc.location_id
 LEFT JOIN clear_cogs cogs 
   ON s.date = cogs.date AND s.location_id = cogs.location_id
-LEFT JOIN `mrdipeshashah.pizzarestaurant.native_kpi_tracker` kpi 
+LEFT JOIN clear_kpi kpi 
   ON s.date = kpi.date AND s.location_id = kpi.location_id;
