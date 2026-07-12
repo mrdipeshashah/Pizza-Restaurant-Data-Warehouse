@@ -1,0 +1,12 @@
+CREATE OR REPLACE MODEL `mrdipeshashah.pizzarestaurant.gross_revenue_forecast_model`
+OPTIONS(
+  model_type = 'ARIMA_PLUS',
+  time_series_timestamp_col = 'forecast_date',
+  time_series_data_col = 'daily_gross_revenue',
+  clean_spikes_and_dips = TRUE
+) AS
+SELECT 
+  date AS forecast_date,
+  SUM(total_gross_revenue) AS daily_gross_revenue
+FROM `mrdipeshashah.pizzarestaurant.v_master_business_performance`
+GROUP BY 1;
