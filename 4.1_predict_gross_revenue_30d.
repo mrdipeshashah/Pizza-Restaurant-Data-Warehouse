@@ -1,0 +1,12 @@
+SELECT 
+  DATE(forecast_timestamp) AS forecast_date,
+  forecast_value AS predicted_gross_revenue,
+  prediction_interval_lower_bound AS min_expected_revenue,
+  prediction_interval_upper_bound AS max_expected_revenue
+FROM 
+  ML.FORECAST(
+    MODEL `mrdipeshashah.pizzarestaurant.gross_revenue_forecast_model`, 
+    STRUCT(30 AS horizon, 0.9 AS confidence_level)
+  )
+ORDER BY 
+  forecast_date ASC;
