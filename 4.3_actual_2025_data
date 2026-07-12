@@ -1,0 +1,30 @@
+WITH forecast_data AS (
+  SELECT 
+    DATE(forecast_timestamp) AS match_date,
+    forecast_value AS predicted_revenue,
+    prediction_interval_lower_bound AS min_predicted,
+    prediction_interval_upper_bound AS max_predicted
+  FROM 
+    ML.FORECAST(
+      MODEL `mrdipeshashah.pizzarestaurant.backtest_2025_model`, 
+      STRUCT(365 AS horizon, 0.9 AS confidence_level) -- Forecast all 365 days of 2025
+    )
+),
+actual_2025_data AS (
+  SELECT 
+    date AS match_date,
+    SUM(total_gross_revenue) AS actual_revenue
+  FROM `mrdipeshashah.pizzarestaurant.v_master_business_performance`
+  WHERE date BETWEEN '2025-01-01' AND '2025-12-31'
+  GROUP BY 1
+)
+SELECT 
+  f.match_date,
+  a.actual_revenue,
+  ROUND(f.predicted_revenue, 2) AS ai_predicted_revenue,
+  ROUND(a.actual_revenue - f.predicted_revenue, 2) AS absolute_error,
+  ROUND(f.min_predicted, 2) AS lower_safety_bound,
+  ROUND(f.max_predicted, 2) AS upper_safety_bound
+FROM forecast_data f
+LEFT JOIN actual_2025_data a ON f.match_date = a.match_date
+ORDER BY f.match_date ASC;
