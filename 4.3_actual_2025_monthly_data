@@ -7,7 +7,7 @@ WITH forecast_data AS (
   FROM 
     ML.FORECAST(
       MODEL `mrdipeshashah.pizzarestaurant.backtest_2025_model`, 
-      STRUCT(365 AS horizon, 0.9 AS confidence_level) -- Forecast all 365 days of 2025
+      STRUCT(365 AS horizon, 0.9 AS confidence_level)
     )
 ),
 actual_2025_data AS (
@@ -19,12 +19,15 @@ actual_2025_data AS (
   GROUP BY 1
 )
 SELECT 
-  f.match_date,
-  a.actual_revenue,
-  ROUND(f.predicted_revenue, 2) AS ai_predicted_revenue,
-  ROUND(a.actual_revenue - f.predicted_revenue, 2) AS absolute_error,
-  ROUND(f.min_predicted, 2) AS lower_safety_bound,
-  ROUND(f.max_predicted, 2) AS upper_safety_bound
+  -- Creates a chronological date for Looker Studio to sort properly
+  DATE_TRUNC(f.match_date, MONTH) AS month_date,
+  -- Creates your clean text label (e.g., "January-2025", "June-2025")
+  FORMAT_DATE('%B-%Y', f.match_date) AS month_year_label,
+  
+  ROUND(SUM(COALESCE(a.actual_revenue, 0)), 2) AS total_actual_revenue,
+  ROUND(SUM(f.predicted_revenue), 2) AS total_ai_predicted_revenue,
+  ROUND(SUM(COALESCE(a.actual_revenue, 0)) - SUM(f.predicted_revenue), 2) AS absolute_error
 FROM forecast_data f
 LEFT JOIN actual_2025_data a ON f.match_date = a.match_date
-ORDER BY f.match_date ASC;
+GROUP BY month_date, month_year_label
+ORDER BY month_date ASC;
