@@ -1,3 +1,5 @@
+-- Train an ARIMA_PLUS time-series model to forecast daily gross revenue
+
 CREATE OR REPLACE MODEL `mrdipeshashah.pizzarestaurant.gross_revenue_forecast_model`
 OPTIONS(
   model_type = 'ARIMA_PLUS',
