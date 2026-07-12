@@ -1,3 +1,5 @@
+-- Generate a forward-looking 30-day daily gross revenue forecast with 90% confidence intervals
+
 SELECT 
   DATE(forecast_timestamp) AS forecast_date,
   forecast_value AS predicted_gross_revenue,
