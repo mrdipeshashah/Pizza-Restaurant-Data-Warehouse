@@ -1,14 +1,52 @@
--- Generate a forward-looking 30-day daily gross revenue forecast with 90% confidence intervals
-
+WITH forecast_data AS (
+  SELECT 
+    DATE(forecast_timestamp) AS match_date,
+    forecast_value AS predicted_revenue,
+    prediction_interval_lower_bound AS min_predicted,
+    prediction_interval_upper_bound AS max_predicted
+  FROM 
+    ML.FORECAST(
+      MODEL `mrdipeshashah.pizzarestaurant.gross_revenue_forecast_model`, 
+      STRUCT(30 AS horizon, 0.9 AS confidence_level)
+    )
+),
+actual_sales_data AS (
+  SELECT 
+    date AS match_date,
+    SUM(total_gross_revenue) AS actual_revenue
+  FROM `mrdipeshashah.pizzarestaurant.t_master_business_performance`
+  GROUP BY 1
+),
+all_dates AS (
+  -- Combine actual dates and forecast dates so we have a continuous timeline
+  SELECT match_date FROM actual_sales_data
+  UNION DISTINCT
+  SELECT match_date FROM forecast_data
+)
 SELECT 
-  DATE(forecast_timestamp) AS forecast_date,
-  forecast_value AS predicted_gross_revenue,
-  prediction_interval_lower_bound AS min_expected_revenue,
-  prediction_interval_upper_bound AS max_expected_revenue
-FROM 
-  ML.FORECAST(
-    MODEL `mrdipeshashah.pizzarestaurant.gross_revenue_forecast_model`, 
-    STRUCT(30 AS horizon, 0.9 AS confidence_level)
-  )
-ORDER BY 
-  forecast_date ASC;
+  d.match_date,
+  
+  -- 1. Actual Sales Column (Only has values for dates that have passed/been inputted)
+  ROUND(COALESCE(a.actual_revenue, 0), 2) AS actual_revenue,
+  
+  -- 2. Blended Revenue Column (Actuals for past, Forecast for future)
+  CASE 
+    WHEN a.actual_revenue IS NOT NULL AND a.actual_revenue > 0 THEN ROUND(a.actual_revenue, 2)
+    ELSE ROUND(f.predicted_revenue, 2)
+  END AS active_revenue_line,
+  
+  -- 3. Pure Forecast Baseline (For validation and comparison)
+  ROUND(f.predicted_revenue, 2) AS pure_ai_forecast,
+  ROUND(f.min_predicted, 2) AS lower_safety_bound,
+  ROUND(f.max_predicted, 2) AS upper_safety_bound,
+  
+  -- Helper to tell Looker Studio what type of data it is looking at
+  CASE 
+    WHEN a.actual_revenue IS NOT NULL AND a.actual_revenue > 0 THEN 'Actual'
+    ELSE 'Forecast'
+  END AS data_type
+
+FROM all_dates d
+LEFT JOIN actual_sales_data a ON d.match_date = a.match_date
+LEFT JOIN forecast_data f ON d.match_date = f.match_date
+ORDER BY d.match_date ASC;
