@@ -1,0 +1,78 @@
+WITH forecast_30 AS (
+  SELECT 
+    DATE(forecast_timestamp) AS match_date,
+    forecast_value AS forecast_30_days,
+    prediction_interval_lower_bound AS lower_bound_30,
+    prediction_interval_upper_bound AS upper_bound_30
+  FROM 
+    ML.FORECAST(
+      MODEL `mrdipeshashah.pizzarestaurant.gross_revenue_forecast_model`, 
+      STRUCT(30 AS horizon, 0.9 AS confidence_level)
+    )
+),
+
+forecast_60 AS (
+  SELECT 
+    DATE(forecast_timestamp) AS match_date,
+    forecast_value AS forecast_60_days,
+    prediction_interval_lower_bound AS lower_bound_60,
+    prediction_interval_upper_bound AS upper_bound_60
+  FROM 
+    ML.FORECAST(
+      MODEL `mrdipeshashah.pizzarestaurant.gross_revenue_forecast_model`, 
+      STRUCT(60 AS horizon, 0.9 AS confidence_level)
+    )
+),
+
+actual_sales_data AS (
+  SELECT 
+    date AS match_date,
+    SUM(total_gross_revenue) AS actual_revenue
+  FROM `mrdipeshashah.pizzarestaurant.t_master_business_performance`
+  GROUP BY 1
+),
+
+all_dates AS (
+  -- Combine actual dates and all possible forecast dates for a continuous timeline
+  SELECT match_date FROM actual_sales_data
+  UNION DISTINCT
+  SELECT match_date FROM forecast_30
+  UNION DISTINCT
+  SELECT match_date FROM forecast_60
+)
+
+SELECT 
+  d.match_date,
+  FORMAT_DATE('%b-%Y', d.match_date) AS month_year,
+  
+  -- 1. Actual Sales Column
+  ROUND(COALESCE(a.actual_revenue, 0), 2) AS actual_revenue,
+  
+  -- 2. 30-Day Horizon Predictions
+  ROUND(f30.forecast_30_days, 2) AS pure_forecast_30_days,
+  ROUND(f30.lower_bound_30, 2) AS lower_bound_30_days,
+  ROUND(f30.upper_bound_30, 2) AS upper_bound_30_days,
+  
+  -- 3. 60-Day Horizon Predictions
+  ROUND(f60.forecast_60_days, 2) AS pure_forecast_60_days,
+  ROUND(f60.lower_bound_60, 2) AS lower_bound_60_days,
+  ROUND(f60.upper_bound_60, 2) AS upper_bound_60_days,
+  
+  -- 4. Variances (Calculated on dates where actual revenue is available)
+  CASE 
+    WHEN a.actual_revenue > 0 AND f30.forecast_30_days > 0 
+    THEN ROUND(((a.actual_revenue - f30.forecast_30_days) / f30.forecast_30_days) * 100, 2)
+    ELSE NULL 
+  END AS variance_pct_30_days,
+
+  CASE 
+    WHEN a.actual_revenue > 0 AND f60.forecast_60_days > 0 
+    THEN ROUND(((a.actual_revenue - f60.forecast_60_days) / f60.forecast_60_days) * 100, 2)
+    ELSE NULL 
+  END AS variance_pct_60_days
+
+FROM all_dates d
+LEFT JOIN actual_sales_data a ON d.match_date = a.match_date
+LEFT JOIN forecast_30 f30 ON d.match_date = f30.match_date
+LEFT JOIN forecast_60 f60 ON d.match_date = f60.match_date
+ORDER BY d.match_date ASC;
