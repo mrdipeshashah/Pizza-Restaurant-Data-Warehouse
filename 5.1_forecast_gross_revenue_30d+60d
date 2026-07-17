@@ -33,7 +33,6 @@ actual_sales_data AS (
 ),
 
 all_dates AS (
-  -- Combine actual dates and all possible forecast dates for a continuous timeline
   SELECT match_date FROM actual_sales_data
   UNION DISTINCT
   SELECT match_date FROM forecast_30
@@ -43,7 +42,34 @@ all_dates AS (
 
 SELECT 
   d.match_date,
+  
+  -- Time Slicing & Year-over-Year Dimensions
   FORMAT_DATE('%b-%Y', d.match_date) AS month_year,
+  FORMAT_DATE('%B', d.match_date) AS month_name,
+  EXTRACT(MONTH FROM d.match_date) AS month_number, -- Added for Jan-Dec sorting (1 to 12)
+  EXTRACT(YEAR FROM d.match_date) AS calendar_year,
+  
+  -- Day & Weekday vs Weekend Slicing
+  FORMAT_DATE('%A', d.match_date) AS day_of_week,
+  -- Added for Mon-Sun sorting (1 to 7) using ISO weekday logic where Mon=1, Sun=7
+  -- Day & Weekday vs Weekend Slicing
+  FORMAT_DATE('%A', d.match_date) AS day_of_week,
+  
+  -- Fixed Mon-Sun sorting index (Mon=1, Tue=2 ... Sun=7)
+  CASE FORMAT_DATE('%A', d.match_date)
+    WHEN 'Monday'    THEN 1
+    WHEN 'Tuesday'   THEN 2
+    WHEN 'Wednesday' THEN 3
+    WHEN 'Thursday'  THEN 4
+    WHEN 'Friday'    THEN 5
+    WHEN 'Saturday'  THEN 6
+    WHEN 'Sunday'    THEN 7
+  END AS day_of_week_index, 
+  
+  CASE 
+    WHEN FORMAT_DATE('%A', d.match_date) IN ('Friday', 'Saturday', 'Sunday') THEN 'Weekend'
+    ELSE 'Weekday'
+  END AS day_type,
   
   -- 1. Actual Sales Column
   ROUND(COALESCE(a.actual_revenue, 0), 2) AS actual_revenue,
@@ -58,7 +84,7 @@ SELECT
   ROUND(f60.lower_bound_60, 2) AS lower_bound_60_days,
   ROUND(f60.upper_bound_60, 2) AS upper_bound_60_days,
   
-  -- 4. Variances (Calculated on dates where actual revenue is available)
+  -- 4. Variances
   CASE 
     WHEN a.actual_revenue > 0 AND f30.forecast_30_days > 0 
     THEN ROUND(((a.actual_revenue - f30.forecast_30_days) / f30.forecast_30_days) * 100, 2)
