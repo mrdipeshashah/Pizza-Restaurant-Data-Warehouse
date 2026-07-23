@@ -1,3 +1,6 @@
+-- 5.1 -- Generate 180-day forecast against 2026 actuals
+CREATE OR REPLACE VIEW `mrdipeshashah.pizzarestaurant.30d_actual_v_forecasted_revenue` AS
+
 WITH forecast_30 AS (
   SELECT 
     DATE(forecast_timestamp) AS match_date,
@@ -7,7 +10,7 @@ WITH forecast_30 AS (
   FROM 
     ML.FORECAST(
       MODEL `mrdipeshashah.pizzarestaurant.gross_revenue_forecast_model`, 
-      STRUCT(30 AS horizon, 0.9 AS confidence_level)
+      STRUCT(180 AS horizon, 0.9 AS confidence_level) -- 180-day horizon covers Jan–June 2026
     )
 ),
 
@@ -20,7 +23,7 @@ forecast_60 AS (
   FROM 
     ML.FORECAST(
       MODEL `mrdipeshashah.pizzarestaurant.gross_revenue_forecast_model`, 
-      STRUCT(60 AS horizon, 0.9 AS confidence_level)
+      STRUCT(180 AS horizon, 0.9 AS confidence_level)
     )
 ),
 
@@ -46,16 +49,13 @@ SELECT
   -- Time Slicing & Year-over-Year Dimensions
   FORMAT_DATE('%b-%Y', d.match_date) AS month_year,
   FORMAT_DATE('%B', d.match_date) AS month_name,
-  EXTRACT(MONTH FROM d.match_date) AS month_number, -- Added for Jan-Dec sorting (1 to 12)
+  EXTRACT(MONTH FROM d.match_date) AS month_number,
   EXTRACT(YEAR FROM d.match_date) AS calendar_year,
   
   -- Day & Weekday vs Weekend Slicing
   FORMAT_DATE('%A', d.match_date) AS day_of_week,
-  -- Added for Mon-Sun sorting (1 to 7) using ISO weekday logic where Mon=1, Sun=7
-  -- Day & Weekday vs Weekend Slicing
-  FORMAT_DATE('%A', d.match_date) AS day_of_week,
   
-  -- Fixed Mon-Sun sorting index (Mon=1, Tue=2 ... Sun=7)
+  -- Mon-Sun sorting index (Mon=1, Sun=7)
   CASE FORMAT_DATE('%A', d.match_date)
     WHEN 'Monday'    THEN 1
     WHEN 'Tuesday'   THEN 2
@@ -74,17 +74,16 @@ SELECT
   -- 1. Actual Sales Column
   ROUND(COALESCE(a.actual_revenue, 0), 2) AS actual_revenue,
   
-  -- 2. 30-Day Horizon Predictions
+  -- 2. Predictions & Confidence Intervals
   ROUND(f30.forecast_30_days, 2) AS pure_forecast_30_days,
   ROUND(f30.lower_bound_30, 2) AS lower_bound_30_days,
   ROUND(f30.upper_bound_30, 2) AS upper_bound_30_days,
   
-  -- 3. 60-Day Horizon Predictions
   ROUND(f60.forecast_60_days, 2) AS pure_forecast_60_days,
   ROUND(f60.lower_bound_60, 2) AS lower_bound_60_days,
   ROUND(f60.upper_bound_60, 2) AS upper_bound_60_days,
   
-  -- 4. Variances
+  -- 3. Variances against Actual Revenue
   CASE 
     WHEN a.actual_revenue > 0 AND f30.forecast_30_days > 0 
     THEN ROUND(((a.actual_revenue - f30.forecast_30_days) / f30.forecast_30_days) * 100, 2)
