@@ -10,7 +10,7 @@ WITH forecast_data AS (
   FROM 
     ML.FORECAST(
       MODEL `mrdipeshashah.pizzarestaurant.gross_revenue_forecast_model`, 
-      STRUCT(180 AS horizon, 0.9 AS confidence_level)
+      STRUCT(365 AS horizon, 0.9 AS confidence_level)
     )
 ),
 
