@@ -1,14 +1,15 @@
--- Train an ARIMA_PLUS time-series model to forecast daily gross revenue
-
+-- 5.0 -- Train an ARIMA_PLUS time-series model anchored to forecast from Jan 1, 2026
 CREATE OR REPLACE MODEL `mrdipeshashah.pizzarestaurant.gross_revenue_forecast_model`
 OPTIONS(
   model_type = 'ARIMA_PLUS',
   time_series_timestamp_col = 'forecast_date',
   time_series_data_col = 'daily_gross_revenue',
-  clean_spikes_and_dips = TRUE
+  clean_spikes_and_dips = TRUE,
+  data_frequency = 'DAILY'
 ) AS
 SELECT 
   date AS forecast_date,
   SUM(total_gross_revenue) AS daily_gross_revenue
-FROM `mrdipeshashah.pizzarestaurant.v_master_business_performance`
+FROM `mrdipeshashah.pizzarestaurant.t_master_business_performance`
+WHERE date <= '2025-12-31'  -- <--- Forces forecast horizon to start on Jan 1, 2026
 GROUP BY 1;
