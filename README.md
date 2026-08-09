@@ -6,7 +6,7 @@ This repository serves as the definitive data catalog, schema registry, and oper
 
 # Data Architecture & Pipeline Dependency Lineage
 
-This document outlines the architecture and data lineage mapping for the two primary pipeline anchors in the repository:
+This repository outlines the architecture and data lineage mapping for the two primary pipeline anchors in the repository:
 1. `3.2_master_business_performance` (Master Reporting Table/View)
 2. `5.1_forecast_gross_revenue_365d` (365-Day ML Forecasting Pipeline)
 
