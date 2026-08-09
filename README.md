@@ -4,32 +4,68 @@ This repository serves as the definitive data catalog, schema registry, and oper
 
 ---
 
-## 🏛 Architecture & Core Philosophy: Volume vs. Value
+# Data Architecture & Pipeline Dependency Lineage
 
-The database is split across three distinct trackers to separate **operational volume** from **financial value**. 
+This document outlines the architecture and data lineage mapping for the two primary pipeline anchors in the repository:
+1. `3.2_master_business_performance` (Master Reporting Table/View)
+2. `5.1_forecast_gross_revenue_365d` (365-Day ML Forecasting Pipeline)
 
-* **Volume = Category Precision:** Derived by mapping order quantities against the `item_menu_tracker` baseline costs. Used for operational planning (ingredient prep, stock ordering), productivity monitoring, and high-level menu trend analysis.
-* **Revenue = Financial Truth:** The `order_value_gross` field inside the `order_tracker` serves as the absolute source of truth. It accounts for every single penny charged to the customer (including modifiers, delivery app markups, or discounts) and **will 100% match cash/card deposits in the bank account.**
+---
 
-### Relational Schema Map & Core Keys
+## 🏗️ 1. Architecture Mapping: `3.2_master_business_performance`
 
-[order_tracker]                                      [business_kpi_tracker]
+This view serves as the **core reporting source of truth**. It aggregates raw daily transactions, incorporates theoretical inventory costs, and cleans data using audit scripts to prepare business performance data for Looker Studio dashboards and BigQuery ML training models.
 
-order_no (Single Primary Key)
+```
+[Audit Layer (1.x)] ──► [Aggregation Layer (2.x / 3.x)] ──► [3.2 Master Business Performance]
+```
 
-location_id   ======= COMPOSITE JOIN ====>    - location_id \ (Composite PK)
+### Dependency Lineage Table
 
-date          =======/                             - date        /
+| Target Pipeline Stage | Script / File Name | Upstream Dependency / Purpose | Role in Master Performance (`3.2`) |
+| :--- | :--- | :--- | :--- |
+| **Audit Layer** | `1.0_audit-daily-costs` | Cost validation | Provides net profit & margin calculation context |
+| | `1.1_audit-isodates` | Calendar standardization | Ensures clean date/ISO-week alignment across leap years |
+| | `1.2_audit-itemmenu-itemcode` | Menu hierarchy audit | Maps order items to standardized revenue categories |
+| | `1.3_audit-monday-holiday-closure` | Operational anomalies | Flags zero-revenue days (e.g., closed Mondays, refurbishments) |
+| | `1.4_audit-ordertype-platform` | Channel mapping | Standardizes order channels (Dine-in, Delivery, Takeaway) |
+| | `1.5_audit-revenue-location` | Location mapping | Maps raw store tags to canonical `location_id` |
+| | `1.6_audit-paymentcost` | Payment fee reconciliation | Standardizes merchant payment processing fee deductions |
+| | `1.7_audit_priceversionyear` | Pricing version tracking | Normalizes price changes across financial years |
+| **Aggregation Layer** | `2.1_daily_sales_aggregated` | Sales line-item rollups | Collapses transactional records into daily store-level totals |
+| | `2.2_theoretical_cogs` | Cost of goods sold | Blends theoretical menu costs into daily revenue totals |
+| | `3.1_aggregated_daily_sales` | Intermediate view | Standardizes revenue metrics across order platforms/types |
+| **Final Target** | **`3.2_master_business_performance`** | **All Above Views/Tables** | **Combines sales, costs, location mapping, and operational flags into a single master source.** |
 
-price_version_year  =
+---
 
-| COMPOSITE JOIN ===>   [item_menu_tracker]
+## 🤖 2. Architecture Mapping: `5.1_forecast_gross_revenue_365d`
 
-[Category Quantities] =/                           - item_code (Single PK)
-- category
+This pipeline powers the **end-to-end ML forecasting engine**. It reads clean historical daily sales from `3.2`, trains the BigQuery `ARIMA_PLUS` model in `5.0`, and generates a complete 365-day prediction output.
 
-1.  **Order Tracker ↔ Business KPI Tracker:** Connect via a **Composite Primary Key** on `location_id` + `date`. Because metrics are aggregated daily per restaurant, both fields are required to prevent data cross-contamination.
-2.  **Order Tracker ↔ Item Menu Tracker:** Connect via a **Composite Join Rule** matching `price_version_year` to the menu year version, alongside hardcoded mappings of item quantities to their descriptive macro categories (e.g., `qty_pizza` maps to `Main Pizza`).
+```
+[3.2 Master Business Performance] ──► [5.0 Model Training] ──► [5.1 365-Day Forecast Generation]
+```
+
+### Dependency Lineage Table
+
+| Pipeline Stage | Script / File Name | Input Source | Primary Function & Impact |
+| :--- | :--- | :--- | :--- |
+| **Data Baseline** | `3.2_master_business_performance` | Core Business Data | Provides historical daily gross revenue filtered by `location_id` and `date`. |
+| **Model Training** | `5.0_train_gross_revenue_forecast` | `3.2_master_business_performance` | Runs `CREATE OR REPLACE MODEL` using `ARIMA_PLUS` on history up to cutoff date. |
+| **Validation / Backtest** | `4.0_backtest_2025_model`<br>`4.1_actual_2025_monthly_data` | Trained Model + 2025 Actuals | Evaluates model accuracy (MAPE/RMSE) against actual historical performance. |
+| **Forecast Execution** | **`5.1_forecast_gross_revenue_365d`** | `5.0` Trained Model | Executes `ML.FORECAST` with `STRUCT(365 AS horizon)` to project full 12-month timeline. |
+| **Final Output** | `t_actual_v_forecasted_revenue` | `5.1` Execution Script | Populates the production BigQuery table powering Looker Studio scorecards and comparative charts. |
+
+## 🔗 Entity Relationship & Data Join Rules
+
+### 1. Order Tracker ↔ Business KPI Tracker
+* **Join Key:** Composite Primary Key (`location_id` + `date`).
+* **Logic & Integrity:** Because performance metrics are aggregated at a daily granularity per restaurant, joining on both fields is mandatory to prevent cross-contamination and fan-out errors across locations.
+
+### 2. Order Tracker ↔ Item Menu Tracker
+* **Join Key:** Composite Join Rule matching `price_version_year` to the corresponding menu version year.
+* **Logic & Category Mapping:** Includes explicit logic to map item quantities to their descriptive macro categories (e.g., `qty_pizza` $\rightarrow$ `Main Pizza`) to ensure accurate price versioning across financial years.
 
 ---
 
