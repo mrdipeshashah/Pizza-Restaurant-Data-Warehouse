@@ -1,4 +1,6 @@
-# Pizza Restaurant Group: Data Warehouse & Analytics Pipeline
+# PIZZA RESTAURANT: DATA WAREHOUSE & ANALYTICS PIPELINE
+
+# OVERVIEW
 
 This repository serves as the definitive data catalog, schema registry, and operational blueprint for our centralized restaurant analytics pipeline. The architecture live-links operational Google Sheets to a **Google BigQuery** data warehouse to calculate top-line revenue, daily overheads, and bottom-line net profitability across multiple locations.
 
