@@ -1,10 +1,6 @@
-# PIZZA RESTAURANT: DATA WAREHOUSE & ANALYTICS PIPELINE
-
-# OVERVIEW
+# OVERVIEW PIZZA RESTAURANT: DATA WAREHOUSE & ANALYTICS PIPELINE
 
 This repository serves as the definitive data catalog, schema registry, and operational blueprint for our centralized restaurant analytics pipeline. The architecture live-links operational Google Sheets to a **Google BigQuery** data warehouse to calculate top-line revenue, daily overheads, and bottom-line net profitability across multiple locations.
-
----
 
 # DATA ARCHITECTURE & PIPELINE DEPENDANCY LINEAGE
 
@@ -12,9 +8,7 @@ This repository outlines the architecture and data lineage mapping for the two p
 1. `3.2_master_business_performance` (Master Reporting Table/View)
 2. `5.1_forecast_gross_revenue_365d` (365-Day ML Forecasting Pipeline)
 
----
-
-## 1. Architecture Mapping: `3.2_master_business_performance`
+## 1. ARCHITECTURE MAPPING: `3.2_master_business_performance`  
 
 This view serves as the **core reporting source of truth**. It aggregates raw daily transactions, incorporates theoretical inventory costs, and cleans data using audit scripts to prepare business performance data for Looker Studio dashboards and BigQuery ML training models.
 
@@ -41,7 +35,7 @@ This view serves as the **core reporting source of truth**. It aggregates raw da
 
 ---
 
-## 2. Architecture Mapping: `5.1_forecast_gross_revenue_365d`
+## 2. ARCHITECTURE MAPPING: `5.1_forecast_gross_revenue_365d`
 
 This pipeline powers the **end-to-end ML forecasting engine**. It reads clean historical daily sales from `3.2`, trains the BigQuery `ARIMA_PLUS` model in `5.0`, and generates a complete 365-day prediction output.
 
@@ -49,7 +43,7 @@ This pipeline powers the **end-to-end ML forecasting engine**. It reads clean hi
 [3.2 Master Business Performance] ──► [5.0 Model Training] ──► [5.1 365-Day Forecast Generation]
 ```
 
-### Dependency Lineage Table
+### DEPENDENCY LINEAGE TABLE
 
 | Pipeline Stage | Script / File Name | Input Source | Primary Function & Impact |
 | :--- | :--- | :--- | :--- |
@@ -59,7 +53,7 @@ This pipeline powers the **end-to-end ML forecasting engine**. It reads clean hi
 | **Forecast Execution** | **`5.1_forecast_gross_revenue_365d`** | `5.0` Trained Model | Executes `ML.FORECAST` with `STRUCT(365 AS horizon)` to project full 12-month timeline. |
 | **Final Output** | `t_actual_v_forecasted_revenue` | `5.1` Execution Script | Populates the production BigQuery table powering Looker Studio scorecards and comparative charts. |
 
-## Entity Relationship & Data Join Rules
+## ENTITY RELATIONSHIP & DATA JOIN RULES
 
 ### 1. Order Tracker ↔ Business KPI Tracker
 * **Join Key:** Composite Primary Key (`location_id` + `date`).
@@ -71,7 +65,7 @@ This pipeline powers the **end-to-end ML forecasting engine**. It reads clean hi
 
 ---
 
-## Data Dictionary & Schema Registry
+## DATA DICTIONARY & SCHEMA REGISTRY
 
 ### 1. Table: `order_tracker`
 * **BigQuery Path:** `mrdipeshashah.pizzarestaurant.order_tracker`
@@ -126,7 +120,7 @@ This pipeline powers the **end-to-end ML forecasting engine**. It reads clean hi
 
 ---
 
-## Data Quality Guardrails & Business Logic Rules
+## DATA QUALITY GUARDRAILS & BUSINESS LOGIC RULES
 
 The pipeline enforces several strict operational rules to protect financial metrics from distortion:
 
@@ -137,7 +131,7 @@ The pipeline enforces several strict operational rules to protect financial metr
 
 ---
 
-## Future Data Roadmap (Things Worth Adding)
+## FUTURE DATA ROADMAP 
 
 As the database scales toward a comprehensive £1.6m business evaluation, the following data schemas should be structured and integrated:
 
@@ -151,7 +145,7 @@ This repository contains the database views and schemas for a three-layer BigQue
 
 ---
 
-## Core Architecture Overview
+## CORE ARCHITECTURE OVERVIEW
 
 The transformation pipeline utilizes a **Composite Primary Key (`location_id` + `date`)** to connect decoupled data streams without creating duplication or nested calculation loops.
 
@@ -162,7 +156,7 @@ The transformation pipeline utilizes a **Composite Primary Key (`location_id` + 
 
 ---
 
-## Data Dictionary & Schema Specification
+## DATA DICTIONARY & SCHEMA SPECIFICATION
 
 ### Layer 2, View 1: `v_int_daily_sales_aggregated`
 * **Role:** Compresses row-by-row transaction logs down to daily location-based volume and revenue snapshots.
@@ -211,7 +205,7 @@ The transformation pipeline utilizes a **Composite Primary Key (`location_id` + 
 * 🔹 **Gross Financial Streams:** `total_gross_revenue`, `total_delivery_commission`, `total_card_merchant_fees`, `total_packaging_cost` *(From 2.1)*
 * 🔹 **Ingredient Cost Breakdowns:** `total_theoretical_cogs`, `cogs_pizza`, `cogs_starter`, `cogs_dessert`, `cogs_drinks` *(From 2.2)*
 
-#### Extended Time-Intelligence & Operational Cost Elements
+#### EXTENDED TIME-INTELLIGENCY & OPERATIONAL COST ELEMENTS
 
 | Field Name | Data Type | Mode | Description / Logic | Production Example |
 | :--- | :--- | :--- | :--- | :--- |
@@ -234,7 +228,7 @@ The transformation pipeline utilizes a **Composite Primary Key (`location_id` + 
 
 ---
 
-## 🛠️ Engineering Integration Guidance
+## ENGINEERING INTEGRATION GUIDANCE
 
 * **Looker Studio Optimization:** Do not use custom calculated fields for revenue subtractions or net margins inside Looker Studio. Use the pre-calculated `total_net_sales` and `total_net_profit` metrics directly to keep dashboard loading response under 1 second.
 * **Aggregations:** When displaying metrics inside scorecard widgets, ensure `total_net_sales` and `total_net_profit` use `SUM` as their default aggregation mode. Time intelligence dimensions (`day_type`, `year_month`) should be used as secondary filters/slicers.
