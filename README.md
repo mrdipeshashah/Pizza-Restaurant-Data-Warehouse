@@ -14,7 +14,7 @@ This repository outlines the architecture and data lineage mapping for the two p
 
 ---
 
-## 🏗️ 1. Architecture Mapping: `3.2_master_business_performance`
+## 1. Architecture Mapping: `3.2_master_business_performance`
 
 This view serves as the **core reporting source of truth**. It aggregates raw daily transactions, incorporates theoretical inventory costs, and cleans data using audit scripts to prepare business performance data for Looker Studio dashboards and BigQuery ML training models.
 
@@ -41,7 +41,7 @@ This view serves as the **core reporting source of truth**. It aggregates raw da
 
 ---
 
-## 🤖 2. Architecture Mapping: `5.1_forecast_gross_revenue_365d`
+## 2. Architecture Mapping: `5.1_forecast_gross_revenue_365d`
 
 This pipeline powers the **end-to-end ML forecasting engine**. It reads clean historical daily sales from `3.2`, trains the BigQuery `ARIMA_PLUS` model in `5.0`, and generates a complete 365-day prediction output.
 
@@ -59,7 +59,7 @@ This pipeline powers the **end-to-end ML forecasting engine**. It reads clean hi
 | **Forecast Execution** | **`5.1_forecast_gross_revenue_365d`** | `5.0` Trained Model | Executes `ML.FORECAST` with `STRUCT(365 AS horizon)` to project full 12-month timeline. |
 | **Final Output** | `t_actual_v_forecasted_revenue` | `5.1` Execution Script | Populates the production BigQuery table powering Looker Studio scorecards and comparative charts. |
 
-## 🔗 Entity Relationship & Data Join Rules
+## Entity Relationship & Data Join Rules
 
 ### 1. Order Tracker ↔ Business KPI Tracker
 * **Join Key:** Composite Primary Key (`location_id` + `date`).
@@ -71,7 +71,7 @@ This pipeline powers the **end-to-end ML forecasting engine**. It reads clean hi
 
 ---
 
-## 📊 Data Dictionary & Schema Registry
+## Data Dictionary & Schema Registry
 
 ### 1. Table: `order_tracker`
 * **BigQuery Path:** `mrdipeshashah.pizzarestaurant.order_tracker`
@@ -126,7 +126,7 @@ This pipeline powers the **end-to-end ML forecasting engine**. It reads clean hi
 
 ---
 
-## 🛡 Data Quality Guardrails & Business Logic Rules
+## Data Quality Guardrails & Business Logic Rules
 
 The pipeline enforces several strict operational rules to protect financial metrics from distortion:
 
@@ -137,7 +137,7 @@ The pipeline enforces several strict operational rules to protect financial metr
 
 ---
 
-## 🔮 Future Data Roadmap (Things Worth Adding)
+## Future Data Roadmap (Things Worth Adding)
 
 As the database scales toward a comprehensive £1.6m business evaluation, the following data schemas should be structured and integrated:
 
@@ -145,13 +145,13 @@ As the database scales toward a comprehensive £1.6m business evaluation, the fo
 * **Actual vs. Theoretical Inventory (Stock Variance):** A table tracking physical stock takes (e.g., kilos of flour/cheese left in the walk-in). This allows us to compare *Actual Food Cost* against the *Theoretical Food Cost* calculated via our menu tracker to pinpoint kitchen theft, over-portioning, or undeclared waste.
 * **Labor Efficiency Matrix (`shift_id`):** Breaking daily `labor_cost` down into hourly staff clock-ins. This unlocks **Sales per Labor Hour (SPLH)** metrics, telling us exactly when a site is over or under-staffed.
 
-# 🍕 Pizza Restaurant Group - Data Pipeline Architecture & Data Dictionary
+# Pizza Restaurant Group - Data Pipeline Architecture & Data Dictionary
 
 This repository contains the database views and schemas for a three-layer BigQuery analytical pipeline. The architecture transforms raw transactional data and daily KPI metrics into a clean, time-intelligent financial model optimized for Looker Studio dashboards.
 
 ---
 
-## 🏗️ Core Architecture Overview
+## Core Architecture Overview
 
 The transformation pipeline utilizes a **Composite Primary Key (`location_id` + `date`)** to connect decoupled data streams without creating duplication or nested calculation loops.
 
@@ -162,9 +162,9 @@ The transformation pipeline utilizes a **Composite Primary Key (`location_id` + 
 
 ---
 
-## 📊 Data Dictionary & Schema Specification
+## Data Dictionary & Schema Specification
 
-### 📦 Layer 2, View 1: `v_int_daily_sales_aggregated`
+### Layer 2, View 1: `v_int_daily_sales_aggregated`
 * **Role:** Compresses row-by-row transaction logs down to daily location-based volume and revenue snapshots.
 * **GitHub File Reference:** `2_intermediate_layer/2.1_v_int_daily_sales_aggregated.sql`
 
@@ -185,7 +185,7 @@ The transformation pipeline utilizes a **Composite Primary Key (`location_id` + 
 
 ---
 
-### 📦 Layer 2, View 2: `v_int_theoretical_cogs`
+### Layer 2, View 2: `v_int_theoretical_cogs`
 * **Role:** Connects day-by-day sales volumes against the menu cost matrices to calculate theoretical ingredient outlays.
 * **GitHub File Reference:** `2_intermediate_layer/2.2_v_int_theoretical_cogs.sql`
 
@@ -201,7 +201,7 @@ The transformation pipeline utilizes a **Composite Primary Key (`location_id` + 
 
 ---
 
-### 👑 Layer 3, Master View: `v_master_business_performance`
+### Layer 3, Master View: `v_master_business_performance`
 * **Role:** The ultimate presentation table. Combines performance metrics from the intermediate layer along with operational overheads and advanced time-intelligence parameters.
 * **Data Flow Note:** This view explicitly inherits fields from `2.1` and `2.2` via a composite join to eliminate calculation duplication.
 * **GitHub File Reference:** `3_master_reporting_layer/3.1_v_master_business_performance.sql`
