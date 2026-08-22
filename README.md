@@ -68,7 +68,7 @@ This pipeline powers the **end-to-end ML forecasting engine**. It reads clean hi
 ## DATA DICTIONARY & SCHEMA REGISTRY
 
 ### 1. Table: `order_tracker`
-* **BigQuery Path:** `mrdipeshashah.pizzarestaurant.order_tracker`
+* **BigQuery Path:** `entertablename.pizzarestaurant.order_tracker`
 * **Purpose:** Captures every individual customer transaction at the point of sale.
 
 | Field Name | Data Type | Mode | Description / Business Rule | Example |
@@ -91,7 +91,7 @@ This pipeline powers the **end-to-end ML forecasting engine**. It reads clean hi
 | `order_value_gross` | `FLOAT` | NULLABLE | Total cash hitting the till/bank account. Includes taxes and add-ons. | `56.00` |
 
 ### 2. Table: `item_menu_tracker`
-* **BigQuery Path:** `mrdipeshashah.pizzarestaurant.item_menu_tracker`
+* **BigQuery Path:** `entertablename.pizzarestaurant.item_menu_tracker`
 * **Purpose:** Stores baseline ingredient costs and standard prices per year version to compute theoretical Cost of Goods Sold (COGS).
 
 | Field Name | Data Type | Mode | Description / Business Rule | Example |
@@ -106,7 +106,7 @@ This pipeline powers the **end-to-end ML forecasting engine**. It reads clean hi
 | `notes` | `STRING` | NULLABLE | Descriptive engineering or pricing remarks. | `Standard` |
 
 ### 3. Table: `business_kpi_tracker`
-* **BigQuery Path:** `mrdipeshashah.pizzarestaurant.business_kpi_tracker`
+* **BigQuery Path:** `entertablename.pizzarestaurant.business_kpi_tracker`
 * **Purpose:** Tracks fixed and variable daily operational expenses.
 
 | Field Name | Data Type | Mode | Description / Business Rule | Example |
