@@ -160,7 +160,8 @@ The transformation pipeline utilizes a **Composite Primary Key (`location_id` + 
 
 ### Layer 2, View 1: `v_int_daily_sales_aggregated`
 * **Role:** Compresses row-by-row transaction logs down to daily location-based volume and revenue snapshots.
-* **GitHub File Reference:** `2_intermediate_layer/2.1_v_int_daily_sales_aggregated.sql`
+* **GitHub File Reference:** `2.1_daily_sales_aggregated`
+* **Source Tables:** `order_tracker`
 
 | Field Name | Data Type | Mode | Description / Logic | Production Example |
 | :--- | :--- | :--- | :--- | :--- |
@@ -180,8 +181,9 @@ The transformation pipeline utilizes a **Composite Primary Key (`location_id` + 
 ---
 
 ### Layer 2, View 2: `v_int_theoretical_cogs`
-* **Role:** Connects day-by-day sales volumes against the menu cost matrices to calculate theoretical ingredient outlays.
-* **GitHub File Reference:** `2_intermediate_layer/2.2_v_int_theoretical_cogs.sql`
+* **Role:** Connects day-by-day sales volumes against menu cost matrices to calculate theoretical ingredient outlays.
+* **GitHub File Reference:** `2.2_theoretical_cogs`
+* **Upstream Dependencies:** `2.1_daily_sales_aggregated`, `item_menu_tracker`
 
 | Field Name | Data Type | Mode | Description / Logic | Production Example |
 | :--- | :--- | :--- | :--- | :--- |
@@ -196,11 +198,11 @@ The transformation pipeline utilizes a **Composite Primary Key (`location_id` + 
 ---
 
 ### Layer 3, Master View: `v_master_business_performance`
-* **Role:** The ultimate presentation table. Combines performance metrics from the intermediate layer along with operational overheads and advanced time-intelligence parameters.
-* **Data Flow Note:** This view explicitly inherits fields from `2.1` and `2.2` via a composite join to eliminate calculation duplication.
-* **GitHub File Reference:** `3_master_reporting_layer/3.1_v_master_business_performance.sql`
+* **Role:** The ultimate presentation view. Combines performance metrics from the intermediate layer along with operational overheads and advanced time-intelligence parameters.
+* **Data Flow Note:** This view explicitly inherits fields from `2.1_daily_sales_aggregated` and `2.2_theoretical_cogs` via a composite join on `(location_id, date)` to eliminate calculation duplication.
+* **GitHub File Reference:** `3.2_master_business_performance`
 
-#### Inherited Fields (Brought forward automatically)
+#### Inherited Fields (Brought Forward Automatically)
 * 🔹 **Structural Elements:** `location_id`, `date`, `price_version_year`, `total_orders_count` *(From 2.1)*
 * 🔹 **Gross Financial Streams:** `total_gross_revenue`, `total_delivery_commission`, `total_card_merchant_fees`, `total_packaging_cost` *(From 2.1)*
 * 🔹 **Ingredient Cost Breakdowns:** `total_theoretical_cogs`, `cogs_pizza`, `cogs_starter`, `cogs_dessert`, `cogs_drinks` *(From 2.2)*
