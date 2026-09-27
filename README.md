@@ -18,7 +18,7 @@ This view serves as the **core reporting source of truth**. It aggregates raw da
 
 ### Dependency Lineage Table
 
-| Target Pipeline Stage | Script / File Name | Upstream Dependency / Purpose | Role in Master Performance (`3.2`) |
+| Target Pipeline Stage | Script / File Name | Upstream Dependency / Purpose | Role in Master Performance & ML Pipeline |
 | :--- | :--- | :--- | :--- |
 | **Audit Layer** | `1.0_audit-daily-costs` | Cost validation | Provides net profit & margin calculation context |
 | | `1.1_audit-isodates` | Calendar standardization | Ensures clean date/ISO-week alignment across leap years |
@@ -27,13 +27,20 @@ This view serves as the **core reporting source of truth**. It aggregates raw da
 | | `1.4_audit-ordertype-platform` | Channel mapping | Standardizes order channels (Dine-in, Delivery, Takeaway) |
 | | `1.5_audit-revenue-location` | Location mapping | Maps raw store tags to canonical `location_id` |
 | | `1.6_audit-paymentcost` | Payment fee reconciliation | Standardizes merchant payment processing fee deductions |
-| | `1.7_audit_priceversionyear` | Pricing version tracking | Normalizes price changes across financial years |
-| **Aggregation Layer** | `2.1_daily_sales_aggregated` | Sales line-item rollups | Collapses transactional records into daily store-level totals |
-| | `2.2_theoretical_cogs` | Cost of goods sold | Blends theoretical menu costs into daily revenue totals |
-| | `3.1_aggregated_daily_sales` | Intermediate view | Standardizes revenue metrics across order platforms/types |
-| **Final Target** | **`3.2_master_business_performance`** | **All Above Views/Tables** | **Combines sales, costs, location mapping, and operational flags into a single master source.** |
+| | `1.7_audit-priceversionyear` | Pricing version tracking | Normalizes price changes across financial years |
+| | `1.8_audit-operational-anomalies` | Consolidated operational view | Aggregates `1.1` + `1.3` + `1.4` + `1.7` date, schedule & platform exceptions |
+| | `1.9_audit-financial-leakage` | Consolidated financial view | Aggregates `1.0` + `1.6` daily cost gaps and fee allocation errors |
+| **Aggregation Layer** | `2.1_daily-sales-aggregated` | Sales line-item rollups | Collapses transactional records into daily store-level totals |
+| | `2.2_theoretical-cogs` | Cost of goods sold | Blends theoretical menu costs into daily revenue totals |
+| | `3.0_native-kpi-tracker` | Native business metrics | Normalizes core EPOS operational KPI tracker fields |
+| **Materialized / Reporting Layer** | `3.1_tbl-daily-sales-aggregated` | Physical aggregated sales table | Materializes `2.1` into high-performance table for reporting |
+| | `3.2_master-business-performance` | Master performance view | Combines sales, COGS, native KPIs, and audit checks into unified logical view |
+| | `3.3_tbl-master-business-performance` | **Final Target Table** | Materializes `3.2` view into the physical table feeding dashboards & ML pipelines |
+| **Forecasting & ML Layer** | `4.0_backtest-2025-model` | Model validation script | Evaluates `ARIMA_PLUS` performance using 2024 training vs. 2025 actuals |
+| | `4.1_actual-2025-monthly-data` | Actuals benchmark dataset | Provides monthly 2025 ground truth for accuracy benchmarking |
+| | `5.0_train-gross-revenue-forecast` | ML model training | Builds BigQuery ML `ARIMA_PLUS` model on historical baseline |
+| | `5.1_forecast-gross-revenue-365d` | Forward-looking forecast | Generates 365-day forward revenue predictions |
 
----
 
 ## 2. ARCHITECTURE MAPPING: `5.1_forecast_gross_revenue_365d`
 
