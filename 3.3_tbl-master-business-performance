@@ -1,0 +1,4 @@
+CREATE OR REPLACE TABLE `mrdipeshashah.pizzarestaurant.tbl_master_business_performance`
+AS 
+SELECT * 
+FROM `mrdipeshashah.pizzarestaurant.v_master_business_performance`;
