@@ -70,8 +70,6 @@ This pipeline powers the **end-to-end ML forecasting engine**. It reads clean hi
 * **Join Key:** Composite Join Rule matching `price_version_year` to the corresponding menu version year.
 * **Logic & Category Mapping:** Includes explicit logic to map item quantities to their descriptive macro categories (e.g., `qty_pizza` $\rightarrow$ `Main Pizza`) to ensure accurate price versioning across financial years.
 
----
-
 ## DATA DICTIONARY & SCHEMA REGISTRY
 
 ### 1. Table: `order_tracker`
@@ -125,8 +123,6 @@ This pipeline powers the **end-to-end ML forecasting engine**. It reads clean hi
 | `utilities` | `FLOAT` | NULLABLE | Pro-rated daily fixed costs for power, gas, water, and broadband. | `20.00` |
 | `wastage` | `FLOAT` | NULLABLE | Financial value of ruined ingredients or voided kitchen errors. | `54.52` |
 
----
-
 ## DATA QUALITY GUARDRAILS & BUSINESS LOGIC RULES
 
 The pipeline enforces several strict operational rules to protect financial metrics from distortion:
@@ -135,8 +131,6 @@ The pipeline enforces several strict operational rules to protect financial metr
 2.  **The Calendar Constraint (Monday Closures):** Operations are closed on Mondays. The pipeline assumes zero revenue and flags anomalies if transaction data appears on a Monday.
 3.  **The Price Year Fallback Rule:** If `price_version_year` is left blank or a new year menu hasn't been generated yet, SQL calculations apply a `COALESCE` safety fallback to default to the most recent active year's costs rather than letting ingredient costs drop to `NULL` (which deceptively inflates profit metrics to 100%).
 4.  **The Menu Multiplication Rule:** A new row must be created in the `item_menu_tracker` for every new operating year, even if ingredient prices do not change. This isolates historical profit records from inflation spikes.
-
----
 
 ## FUTURE DATA ROADMAP 
 
@@ -150,8 +144,6 @@ As the database scales toward a comprehensive £1.6m business evaluation, the fo
 
 This repository contains the database views and schemas for a three-layer BigQuery analytical pipeline. The architecture transforms raw transactional data and daily KPI metrics into a clean, time-intelligent financial model optimized for Looker Studio dashboards.
 
----
-
 ## CORE ARCHITECTURE OVERVIEW
 
 The transformation pipeline utilizes a **Composite Primary Key (`location_id` + `date`)** to connect decoupled data streams without creating duplication or nested calculation loops.
@@ -160,8 +152,6 @@ The transformation pipeline utilizes a **Composite Primary Key (`location_id` + 
 2. **Layer 2, View 1 (`2.1_v_int_daily_sales_aggregated`)**: The Aggregation Engine. Condenses raw tickets to a daily level.
 3. **Layer 2, View 2 (`2.2_v_int_theoretical_cogs`)**: The Matrix Cost Engine. Computes dynamic food costs with location-based overrides.
 4. **Layer 3, Master View (`3.1_v_master_business_performance`)**: The Performance Engine. Integrates fixed overheads, pre-computes bottom-line profit margins, and injects extensive time-intelligence fields.
-
----
 
 ## DATA DICTIONARY & SCHEMA SPECIFICATION
 
@@ -185,8 +175,6 @@ The transformation pipeline utilizes a **Composite Primary Key (`location_id` + 
 | `total_packaging_cost` | `FLOAT` | NULLABLE | Dynamic cost computed based on takeout boxes used. | `37.60` |
 | `total_orders_count` | `INTEGER` | NULLABLE | Total number of unique orders processed during the operational window. | `47` |
 
----
-
 ### Layer 2, View 2: `v_int_theoretical_cogs`
 * **Role:** Connects day-by-day sales volumes against menu cost matrices to calculate theoretical ingredient outlays.
 * **GitHub File Reference:** `2.2_theoretical_cogs`
@@ -202,17 +190,15 @@ The transformation pipeline utilizes a **Composite Primary Key (`location_id` + 
 | `cogs_dessert` | `FLOAT` | NULLABLE | Dessert volume multiplied by ranked dessert unit cost. | `0.0` |
 | `cogs_drinks` | `FLOAT` | NULLABLE | Drinks volume multiplied by ranked drink unit cost. | `0.0` |
 
----
-
 ### Layer 3, Master View: `v_master_business_performance`
 * **Role:** The ultimate presentation view. Combines performance metrics from the intermediate layer along with operational overheads and advanced time-intelligence parameters.
 * **Data Flow Note:** This view explicitly inherits fields from `2.1_daily_sales_aggregated` and `2.2_theoretical_cogs` via a composite join on `(location_id, date)` to eliminate calculation duplication.
 * **GitHub File Reference:** `3.2_master_business_performance`
 
 #### Inherited Fields (Brought Forward Automatically)
-* 🔹 **Structural Elements:** `location_id`, `date`, `price_version_year`, `total_orders_count` *(From 2.1)*
-* 🔹 **Gross Financial Streams:** `total_gross_revenue`, `total_delivery_commission`, `total_card_merchant_fees`, `total_packaging_cost` *(From 2.1)*
-* 🔹 **Ingredient Cost Breakdowns:** `total_theoretical_cogs`, `cogs_pizza`, `cogs_starter`, `cogs_dessert`, `cogs_drinks` *(From 2.2)*
+* **Structural Elements:** `location_id`, `date`, `price_version_year`, `total_orders_count` *(From 2.1)*
+* **Gross Financial Streams:** `total_gross_revenue`, `total_delivery_commission`, `total_card_merchant_fees`, `total_packaging_cost` *(From 2.1)*
+* **Ingredient Cost Breakdowns:** `total_theoretical_cogs`, `cogs_pizza`, `cogs_starter`, `cogs_dessert`, `cogs_drinks` *(From 2.2)*
 
 #### EXTENDED TIME-INTELLIGENCY & OPERATIONAL COST ELEMENTS
 
@@ -234,8 +220,6 @@ The transformation pipeline utilizes a **Composite Primary Key (`location_id` + 
 | `overhead_wastage_cost` | `FLOAT` | NULLABLE | Real dollar value of wasted inventory reported by branch management. | `54.52` |
 | `total_net_sales` | `FLOAT` | NULLABLE | **Calculated Metric:** `total_gross_revenue - total_delivery_commission - total_card_merchant_fees - total_packaging_cost`. | `1602.55` |
 | `total_net_profit` | `FLOAT` | NULLABLE | **Calculated Metric:** `total_net_sales - total_theoretical_cogs - sum of overhead costs`. | `731.53` |
-
----
 
 ## ENGINEERING INTEGRATION GUIDANCE
 
