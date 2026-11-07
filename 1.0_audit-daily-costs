@@ -2,8 +2,8 @@ SELECT
   orders.date,
   orders.location_id,
   SUM(orders.order_value_gross) as sales_without_kpi_costs
-FROM `mrdipeshashah.pizzarestaurant.order_tracker` as orders
-LEFT JOIN `mrdipeshashah.pizzarestaurant.business_kpi_tracker` as kpi
+FROM `enter.tablename.pizzarestaurant.order_tracker` as orders
+LEFT JOIN `enter.tablename.pizzarestaurant.business_kpi_tracker` as kpi
   ON orders.date = kpi.date AND orders.location_id = kpi.location_id
 WHERE kpi.date IS NULL
 GROUP BY 1, 2
