@@ -3,7 +3,7 @@ SELECT
   FORMAT_DATE('%A', date) AS day_name,
   COUNT(order_no) AS total_orders,
   SUM(order_value_gross) AS daily_revenue
-FROM `mrdipeshashah.pizzarestaurant.order_tracker`
+FROM `enter.tablename.pizzarestaurant.order_tracker`
 WHERE FORMAT_DATE('%A', date) = 'Monday'
 GROUP BY 1, 2
 ORDER BY date;
