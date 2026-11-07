@@ -1,4 +1,3 @@
-CREATE OR REPLACE TABLE `enter.tablename.pizzarestaurant.native_kpi_tracker` AS 
 SELECT 
   PARSE_DATE('%Y-%m-%d', CAST(date AS STRING)) AS date, -- Forces clean date indexing
   CAST(location_id AS STRING) AS location_id,
