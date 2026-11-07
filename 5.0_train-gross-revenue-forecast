@@ -1,4 +1,3 @@
-CREATE OR REPLACE MODEL `mrdipeshashah.pizzarestaurant.gross_revenue_forecast_model`
 OPTIONS(
   model_type = 'ARIMA_PLUS',
   time_series_timestamp_col = 'forecast_date',
@@ -12,6 +11,6 @@ SELECT
   location_id,
   date AS forecast_date,
   SUM(total_gross_revenue) AS daily_gross_revenue
-FROM `mrdipeshashah.pizzarestaurant.v_master_business_performance`
+FROM `enter.tablename.pizzarestaurant.v_master_business_performance`
 WHERE date <= '2025-12-31'
 GROUP BY location_id, date;
