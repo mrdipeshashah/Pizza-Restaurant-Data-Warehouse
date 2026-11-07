@@ -1,5 +1,3 @@
-CREATE OR REPLACE TABLE `mrdipeshashah.pizzarestaurant.t_actual_v_forecasted_revenue` AS
-
 WITH forecast_data AS (
   SELECT 
     location_id,
@@ -9,7 +7,7 @@ WITH forecast_data AS (
     prediction_interval_upper_bound AS upper_bound_30_days
   FROM 
     ML.FORECAST(
-      MODEL `mrdipeshashah.pizzarestaurant.gross_revenue_forecast_model`, 
+      MODEL `enter.tablename.pizzarestaurant.gross_revenue_forecast_model`, 
       STRUCT(365 AS horizon, 0.9 AS confidence_level)
     )
 ),
@@ -19,7 +17,7 @@ actual_sales_data AS (
     location_id,
     date AS match_date,
     SUM(total_gross_revenue) AS actual_revenue
-  FROM `mrdipeshashah.pizzarestaurant.v_master_business_performance`
+  FROM `enter.tablename.pizzarestaurant.v_master_business_performance`
   GROUP BY location_id, date
 ),
 
