@@ -6,7 +6,7 @@ WITH forecast_data AS (
     prediction_interval_upper_bound AS max_predicted
   FROM 
     ML.FORECAST(
-      MODEL `mrdipeshashah.pizzarestaurant.backtest_2025_model`, 
+      MODEL `enter.tablename.pizzarestaurant.backtest_2025_model`, 
       STRUCT(365 AS horizon, 0.9 AS confidence_level)
     )
 ),
@@ -14,7 +14,7 @@ actual_2025_data AS (
   SELECT 
     date AS match_date,
     SUM(total_gross_revenue) AS actual_revenue
-  FROM `mrdipeshashah.pizzarestaurant.v_master_business_performance`
+  FROM `enter.tablename.pizzarestaurant.v_master_business_performance`
   WHERE date BETWEEN '2025-01-01' AND '2025-12-31'
   GROUP BY 1
 )
