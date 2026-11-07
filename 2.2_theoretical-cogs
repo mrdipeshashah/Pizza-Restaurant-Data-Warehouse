@@ -1,5 +1,5 @@
 WITH daily_volumes AS (
-  SELECT * FROM `mrdipeshashah.pizzarestaurant.v_int_daily_sales_aggregated`
+  SELECT * FROM `enter.tablename.pizzarestaurant.v_int_daily_sales_aggregated`
 ),
 
 ranked_menu_costs AS (
@@ -14,7 +14,7 @@ ranked_menu_costs AS (
       PARTITION BY category, CAST(SPLIT(item_code, '-')[SAFE_OFFSET(1)] AS INT64), location_id
       ORDER BY CASE WHEN location_id = 'ALL' THEN 2 ELSE 1 END
     ) as ranking
-  FROM `mrdipeshashah.pizzarestaurant.item_menu_tracker`
+  FROM `enter.tablename.pizzarestaurant.item_menu_tracker`
   WHERE status = 'Active' OR status = 'Retired' -- keeps historical versions viable
 )
 
