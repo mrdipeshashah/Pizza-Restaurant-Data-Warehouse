@@ -5,7 +5,7 @@ SELECT
   CAST(date AS STRING) AS problematic_value,
   '1.2_check-isodates' AS check_id,
   'CRITICAL: Date format is not strict ISO YYYY-MM-DD or is unparsable' AS error_description
-FROM `mrdipeshashah.pizzarestaurant.order_tracker`
+FROM `enter.tablename.pizzarestaurant.order_tracker`
 WHERE SAFE.PARSE_DATE('%Y-%m-%d', CAST(date AS STRING)) IS NULL
 
 UNION ALL
@@ -17,7 +17,7 @@ SELECT
   CAST(date AS STRING) AS problematic_value,
   '1.2_check-isodates' AS check_id,
   'CRITICAL: Date format is not strict ISO YYYY-MM-DD or is unparsable' AS error_description
-FROM `mrdipeshashah.pizzarestaurant.business_kpi_tracker`
+FROM `enter.tablename.pizzarestaurant.business_kpi_tracker`
 WHERE SAFE.PARSE_DATE('%Y-%m-%d', CAST(date AS STRING)) IS NULL
 
 UNION ALL
@@ -29,7 +29,7 @@ SELECT
   CAST(date AS STRING) AS problematic_value,
   '1.4_check-monday-holiday-closure' AS check_id,
   'WARNING: Order recorded on a Monday when the restaurant is closed' AS error_description
-FROM `mrdipeshashah.pizzarestaurant.order_tracker`
+FROM `enter.tablename.pizzarestaurant.order_tracker`
 WHERE EXTRACT(DAYOFWEEK FROM date) = 2 
 
 UNION ALL
@@ -41,7 +41,7 @@ SELECT
   CONCAT('Type: ', order_type, ' | Platform: ', platform) AS problematic_value,
   '1.5_check-ordertype-platform' AS check_id,
   'CRITICAL: Mismatch. Direct orders must be Dine-in/Takeaway. Apps must be Delivery.' AS error_description
-FROM `mrdipeshashah.pizzarestaurant.order_tracker`
+FROM `enter.tablename.pizzarestaurant.order_tracker`
 WHERE (order_type IN ('Dine-in', 'Takeaway') AND platform != 'Direct')
    OR (order_type = 'Delivery' AND platform = 'Direct')
 
@@ -54,5 +54,5 @@ SELECT
   CAST(price_version_year AS STRING) AS problematic_value,
   '1.8_check_priceversionyear' AS check_id,
   'CRITICAL: price_version_year is blank or 0. Food cost (COGS) will miscalculate.' AS error_description
-FROM `mrdipeshashah.pizzarestaurant.order_tracker`
+FROM `enter.tablename.pizzarestaurant.order_tracker`
 WHERE price_version_year IS NULL OR price_version_year = 0;
