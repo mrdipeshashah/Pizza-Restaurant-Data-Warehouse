@@ -5,5 +5,5 @@ SELECT
   location_id,
   'price_version_year' AS column_with_issue,
   'CRITICAL: price_version_year is blank. Costs will revert to fallback defaults.' AS error_description
-FROM `mrdipeshashah.pizzarestaurant.order_tracker`
+FROM `enter.tablename.pizzarestaurant.order_tracker`
 WHERE price_version_year IS NULL;
