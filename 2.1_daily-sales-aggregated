@@ -24,7 +24,7 @@ SELECT
   -- 3. Operational Counts
   COUNT(order_no) AS total_orders_count
 
-FROM `mrdipeshashah.pizzarestaurant.order_tracker`
+FROM `enter.tablename.pizzarestaurant.order_tracker`
 GROUP BY 
   location_id, 
   CAST(date AS DATE),
