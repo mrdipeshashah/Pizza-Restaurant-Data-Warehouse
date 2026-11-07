@@ -1,8 +1,8 @@
 SELECT 
   price_version_year,
   COUNT(*) as order_rows_affected
-FROM `mrdipeshashah.pizzarestaurant.order_tracker` as orders
-LEFT JOIN `mrdipeshashah.pizzarestaurant.item_menu_tracker` as menu
+FROM `enter.tablename.pizzarestaurant.order_tracker` as orders
+LEFT JOIN `enter.tablename.pizzarestaurant.item_menu_tracker` as menu
   ON orders.price_version_year = CAST(SPLIT(menu.item_code, '-')[SAFE_OFFSET(1)] AS INT64)
 WHERE menu.item_code IS NULL
 GROUP BY 1;
