@@ -1,4 +1,4 @@
 -- RUN THIS BY ITSELF IN A BLANK TAB
-CREATE OR REPLACE TABLE `mrdipeshashah.pizzarestaurant.tbl_daily_sales_aggregated`
+CREATE OR REPLACE TABLE `enter.tablename.pizzarestaurant.tbl_daily_sales_aggregated`
 AS 
-SELECT * FROM `mrdipeshashah.pizzarestaurant.v_int_daily_sales_aggregated`;
+SELECT * FROM `enter.tablename.pizzarestaurant.v_int_daily_sales_aggregated`;
