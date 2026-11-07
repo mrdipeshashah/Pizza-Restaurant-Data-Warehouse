@@ -5,7 +5,7 @@ SELECT
   CAST(payment_cost AS STRING) AS problematic_value,
   '1.7_check-paymentcost' AS check_id,
   'CRITICAL: Cash order has a non-zero payment_cost. Card merchant fees cannot apply to cash.' AS error_description
-FROM `mrdipeshashah.pizzarestaurant.order_tracker`
+FROM `enter.tablename.pizzarestaurant.order_tracker`
 WHERE payment_type = 'Cash' AND payment_cost > 0
 
 UNION ALL
@@ -17,5 +17,5 @@ SELECT
   CONCAT('Labor: ', CAST(labor_cost AS STRING), ' | Utilities: ', CAST(utilities AS STRING)) AS problematic_value,
   '1.1_check-daily-costs' AS check_id,
   'WARNING: Daily baseline operational costs are missing, zero, or negative.' AS error_description
-FROM `mrdipeshashah.pizzarestaurant.business_kpi_tracker`
+FROM `enter.tablename.pizzarestaurant.business_kpi_tracker`
 WHERE labor_cost <= 0 OR utilities <= 0;
