@@ -221,8 +221,4 @@ The transformation pipeline utilizes a **Composite Primary Key (`location_id` + 
 | `total_net_sales` | `FLOAT` | NULLABLE | **Calculated Metric:** `total_gross_revenue - total_delivery_commission - total_card_merchant_fees - total_packaging_cost`. | `1602.55` |
 | `total_net_profit` | `FLOAT` | NULLABLE | **Calculated Metric:** `total_net_sales - total_theoretical_cogs - sum of overhead costs`. | `731.53` |
 
-## ENGINEERING INTEGRATION GUIDANCE
 
-* **Data Studio Optimization:** Do not use custom calculated fields for revenue subtractions or net margins inside Looker Studio. Use the pre-calculated `total_gross_revenue` and `total_theoretical_cogs` metrics directly from `3.2_master_business_performance` to keep dashboard response times under 1 second.
-* **Scorecard Aggregations:** When displaying revenue and cost metrics inside Looker Studio scorecard widgets, ensure `total_gross_revenue` and `total_theoretical_cogs` use `SUM` as their default aggregation mode. Time-intelligence dimensions (`day_type`, `year_month`, `day_name`) should be used strictly as secondary filters/slicers.
-* **ML Pipeline Input:** The BigQuery ML ARIMA_PLUS pipeline (`5.0` & `5.1`) reads historical daily baseline data directly from `3.2_master_business_performance` grouped by `date` and `location_id`.
